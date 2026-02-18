@@ -27,6 +27,15 @@ class Game:
         self.unknown_count = 0
         self.total_moves = 0
 
+    def reset_game(self):
+        """Reset the board and all state for a fresh game."""
+        self.board = np.full((5, 5), ' ')
+        self.current_player = 'X'
+        self.board_history = []
+        self.outcome = 'ONGOING'
+        self.unknown_count = 0
+        self.total_moves = 0
+
     def play(self):
         """Main game loop. Returns (scored_boards_dict, unknown_rate)."""
         self.board_history = []
@@ -200,16 +209,18 @@ class Game:
                 and self.board[i, j] in {self.current_player, ' '}]
 
     def get_valid_directions(self, row, col):
-        """Return the valid push directions for a given edge position."""
+        """Return the valid push directions for a given edge position.
+
+        A piece can be pushed in any direction EXCEPT back towards the edge it
+        already sits on.  This gives:
+          • corners          → 2 directions
+          • non-corner edges → 3 directions
+        """
         directions = []
-        if row == 0:
-            directions.append("down")
-        if row == 4:
-            directions.append("up")
-        if col == 0:
-            directions.append("right")
-        if col == 4:
-            directions.append("left")
+        if row > 0:   directions.append("up")
+        if row < 4:   directions.append("down")
+        if col > 0:   directions.append("left")
+        if col < 4:   directions.append("right")
         return directions
 
     def make_move(self, row, col, direction):
