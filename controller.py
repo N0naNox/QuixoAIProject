@@ -22,8 +22,6 @@ class MyGameController:
       • Non-corner edge cells have exactly 1 direction → move executes instantly.
     """
 
-    ARROWS = {"up": "↑  Up", "down": "↓  Down", "left": "←  Left", "right": "→  Right"}
-
     def __init__(self, model: Game, view: QuixoGameView):
         self._model = model
         self._view = view
@@ -109,7 +107,7 @@ class MyGameController:
             self._show_direction_picker(row, col, dirs)
 
     def _show_direction_picker(self, row: int, col: int, dirs: list):
-        """Small modal popup so the user can pick a push direction for a corner cell."""
+        """Modal popup with a directional-pad layout for choosing a push direction."""
         popup = tk.Toplevel(self._view.root)
         popup.title("Push direction")
         popup.resizable(False, False)
@@ -122,29 +120,38 @@ class MyGameController:
             font=("Helvetica", 11),
             bg="#1e1e2e",
             fg="#cdd6f4",
-        ).pack(pady=(14, 8), padx=20)
+        ).pack(pady=(14, 6), padx=20)
 
-        btn_frame = tk.Frame(popup, bg="#1e1e2e")
-        btn_frame.pack(padx=20, pady=(0, 14))
+        # D-pad grid: up=row0/col1, left=row1/col0, right=row1/col2, down=row2/col1
+        DPAD = {
+            "up":    (0, 1, "↑"),
+            "left":  (1, 0, "←"),
+            "right": (1, 2, "→"),
+            "down":  (2, 1, "↓"),
+        }
+
+        pad_frame = tk.Frame(popup, bg="#1e1e2e")
+        pad_frame.pack(padx=24, pady=(4, 16))
 
         def pick(direction):
             popup.destroy()
             self._execute_human_move(row, col, direction)
 
         for d in dirs:
+            grid_row, grid_col, symbol = DPAD[d]
             tk.Button(
-                btn_frame,
-                text=self.ARROWS[d],
-                font=("Helvetica", 12, "bold"),
+                pad_frame,
+                text=symbol,
+                font=("Helvetica", 16, "bold"),
+                width=3,
+                height=1,
                 bg="#89dceb",
                 fg="#1e1e2e",
                 activebackground="#74c7ec",
                 relief="flat",
-                padx=14,
-                pady=8,
                 cursor="hand2",
                 command=lambda d=d: pick(d),
-            ).pack(side=tk.LEFT, padx=6)
+            ).grid(row=grid_row, column=grid_col, padx=4, pady=4)
 
         def on_close():
             """User closed the popup without choosing – deselect the cell."""
