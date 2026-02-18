@@ -27,6 +27,15 @@ class Game:
         self.unknown_count = 0
         self.total_moves = 0
 
+    def reset_game(self):
+        """Reset the board and all state for a fresh game."""
+        self.board = np.full((5, 5), ' ')
+        self.current_player = 'X'
+        self.board_history = []
+        self.outcome = 'ONGOING'
+        self.unknown_count = 0
+        self.total_moves = 0
+
     def play(self):
         """Main game loop. Returns (scored_boards_dict, unknown_rate)."""
         self.board_history = []
