@@ -21,12 +21,12 @@ def load_and_encode_data(file_path):
 
     for board_str, values in raw_data.items():
         # Clean: "[001...]" -> "001..."
-        clean_board = board_str[1:-1]
+        #clean_board = board_str[1:-1]
 
         # Encode: 0 -> [1,0,0], 1 -> [0,1,0], 2 -> [0,0,1]
         board_vector = []
-        for char in clean_board:
-            val = int(char)
+        for char in board_str:
+            val = 0 if char == ' ' else 1 if char == 'X' else 2
             one_hot = [0.0, 0.0, 0.0]
             one_hot[val] = 1.0
             board_vector.extend(one_hot)
@@ -39,11 +39,11 @@ def load_and_encode_data(file_path):
 # Model definition
 
 
-class TicTacToeNet(nn.Module):
+class QuixoNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.layer1 = nn.Linear(27, 64)
-        self.layer2 = nn.Linear(64, 64)
+        self.layer1 = nn.Linear(75, 128)
+        self.layer2 = nn.Linear(128, 64)
         self.output = nn.Linear(64, 1)
 
     def forward(self, x):
@@ -119,12 +119,12 @@ def evaluate(model, loader, device):
 # Load network weights from .pth file
 def load_network(model_path, device):
     """
-    Loads a saved TicTacToeNet model from a .pth file.
+    Loads a saved QuixoNet model from a .pth file.
     """
     print(f"Loading model from {model_path}...")
 
     # 1. Instantiate a fresh model
-    model = TicTacToeNet().to(device)
+    model = QuixoNet().to(device)
 
     # 2. Load the saved weights into the model
     model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
@@ -140,11 +140,11 @@ def encode_single_board(board_str):
     Cleans and one-hot encodes a single Tic-Tac-Toe board string.
     Example: "[102010201]" -> [0.0, 1.0, 0.0, 1.0, 0.0, 0.0, ...]
     """
-    clean_board = board_str.strip("[]")
+    #clean_board = board_str.strip("[]")
 
     board_vector = []
-    for char in clean_board:
-        val = int(char)
+    for char in board_str:
+        val = 0 if char == '0' else 1 if char == '1' else 2
         one_hot = [0.0, 0.0, 0.0]
         one_hot[val] = 1.0
         board_vector.extend(one_hot)
@@ -182,7 +182,7 @@ if __name__ == "__main__":
         print(f"Device selected: {device}")
 
         # 1. Prepare Data
-        X, Y = load_and_encode_data('working_dir\\game_dict_100K_random.json')
+        X, Y = load_and_encode_data('states_random.json')
 
         # 2. Configure dataloader and partition into train and test sets
         dataset = TensorDataset(X, Y)
@@ -204,14 +204,14 @@ if __name__ == "__main__":
         test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
         # 3. Instantiate Model
-        net = TicTacToeNet().to(device)
+        net = QuixoNet().to(device)
 
         # 4. Execute Training
         train_loss_history, test_loss_history = train(net, train_loader, test_loader, device)
 
         # 5. Save the result
-        torch.save(net.state_dict(), "tictactoe_model.pth")
-        print("\nModel saved to tictactoe_model.pth")
+        torch.save(net.state_dict(), "quixo_model.pth")
+        print("\nModel saved to quixo_model.pth")
 
         # 6. Plot loss over epochs
         plt.figure()
@@ -228,7 +228,7 @@ if __name__ == "__main__":
         plt.show()
 
     elif operation_mode == "INFERENCE":
-        model = load_network("tictactoe_model.pth", torch.device("cpu"))
-        board = "202012101" # "102010201"
+        model = load_network("quixo_model.pth", torch.device("cpu"))
+        board = "0000010000200000000000000"
         score = predict_score(model, board, torch.device("cpu"))
         print(f'{board}, {score}')

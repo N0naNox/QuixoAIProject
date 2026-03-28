@@ -207,9 +207,10 @@ class MyGameController:
 # MAIN ENTRY POINT
 # ==============================================================================
 if __name__ == "__main__":
-    # Load the greedy dictionary if it exists (makes the AI much stronger)
+
+    #Load the strongest available dictionary
     states_dict = {}
-    for filename in ('states_greedy.json', 'states_heuristic.json', 'states_random.json'):
+    for filename in ('states_heuristic.json', 'states_greedy.json', 'states_random.json'):
         if os.path.exists(filename):
             with open(filename) as f:
                 raw = json.load(f)
@@ -223,7 +224,7 @@ if __name__ == "__main__":
     root = tk.Tk()
 
     game_model = Game(
-        play_mode='GREEDY',
+        play_mode='HEURISTIC',   # 'HEURISTIC', 'GREEDY', or 'RANDOM'
         output_mode='SILENT',
         states_dict=states_dict,
     )
