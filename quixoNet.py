@@ -5,6 +5,8 @@ from torch.utils.data import TensorDataset, DataLoader, random_split
 import json
 import matplotlib.pyplot as plt
 
+operation_mode = "INFERENCE"
+
 # Data preparation
 def load_and_encode_data(file_path):
     """
@@ -18,23 +20,19 @@ def load_and_encode_data(file_path):
     Y_list = []
 
     for board_str, values in raw_data.items():
-        
+        # Clean: "[001...]" -> "001..."
+        clean_board = board_str[1:-1]
 
         # Encode: 0 -> [1,0,0], 1 -> [0,1,0], 2 -> [0,0,1]
         board_vector = []
-        for char in board_str:
+        for char in clean_board:
+            val = int(char)
             one_hot = [0.0, 0.0, 0.0]
-
-
-            val = 0 if char == ' ' else 1 if char == 'X' else 2
-
             one_hot[val] = 1.0
             board_vector.extend(one_hot)
 
         X_list.append(board_vector)
         Y_list.append([values[0]])
-
-    
 
     return torch.tensor(X_list), torch.tensor(Y_list)
 
@@ -44,10 +42,9 @@ def load_and_encode_data(file_path):
 class TicTacToeNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.layer1 = nn.Linear(75, 128)
-        self.layer2 = nn.Linear(128, 64)
-        self.layer3 = nn.Linear(64, 32)
-        self.output = nn.Linear(32, 1)
+        self.layer1 = nn.Linear(27, 64)
+        self.layer2 = nn.Linear(64, 64)
+        self.output = nn.Linear(64, 1)
 
     def forward(self, x):
         # Layer 1
@@ -58,21 +55,16 @@ class TicTacToeNet(nn.Module):
         x = self.layer2(x)
         x = torch.relu(x)
 
-        # Layer 3
-        x = self.layer3(x)
-        x = torch.relu(x)
-
         # Output layer
         x = self.output(x)
         x = torch.sigmoid(x)
 
-        # We use Tanh at the end to squash the score between -1 and 1
-        return torch.tanh(self.output(x))
+        return x
 
 # Training
-def train(model, train_loader, test_loader, device, epochs=1000, learning_rate=0.01):
+def train(model, train_loader, test_loader, device, epochs=2000, learning_rate=0.001):
     loss_fn = nn.MSELoss()
-    optimizer = optim.SGD(model.parameters(), lr=learning_rate)
+    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=0.01)
 
     train_loss_history = []
     test_loss_history = []
@@ -124,51 +116,119 @@ def evaluate(model, loader, device):
     model.train()  # Reset to training mode
     return avg_loss
 
+# Load network weights from .pth file
+def load_network(model_path, device):
+    """
+    Loads a saved TicTacToeNet model from a .pth file.
+    """
+    print(f"Loading model from {model_path}...")
+
+    # 1. Instantiate a fresh model
+    model = TicTacToeNet().to(device)
+
+    # 2. Load the saved weights into the model
+    model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
+
+    # 3. Set the model to evaluation mode
+    model.eval()
+
+    return model
+
+# Encode board for input into network
+def encode_single_board(board_str):
+    """
+    Cleans and one-hot encodes a single Tic-Tac-Toe board string.
+    Example: "[102010201]" -> [0.0, 1.0, 0.0, 1.0, 0.0, 0.0, ...]
+    """
+    clean_board = board_str.strip("[]")
+
+    board_vector = []
+    for char in clean_board:
+        val = int(char)
+        one_hot = [0.0, 0.0, 0.0]
+        one_hot[val] = 1.0
+        board_vector.extend(one_hot)
+
+    return board_vector
+
+# Perform inference to get score prediction
+def predict_score(model, board_str, device):
+    """
+    Takes a trained model and a board string, and outputs the predicted score.
+    """
+    # 1. Encode the board using our helper function
+    board_vector = encode_single_board(board_str)
+
+    # 2. Convert to tensor and add a "batch" dimension (shape becomes [1, 27])
+    x_tensor = torch.tensor([board_vector]).to(device)
+
+    # 3. Make the prediction without calculating gradients
+    with torch.no_grad():
+        prediction = model(x_tensor)
+
+    # 4. Extract the single float value from the resulting tensor
+    return prediction.item()
+
 # Main
 if __name__ == "__main__":
-    # # 0. Choose device
-    # if torch.cuda.is_available():
-    #     device = torch.device("cuda")
-    # else:
-    #     device = torch.device("cpu")
 
-    # print(f"Device selected: {device}")
+    if operation_mode == "TRAIN":
+        # 0. Choose device
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        else:
+            device = torch.device("cpu")
 
-    # # 1. Prepare Data
-    # X, Y = load_and_encode_data('working_dir\\game_dict_100K_random.json')
+        print(f"Device selected: {device}")
 
-    # # 2. Configure dataloader and partition into train and test sets
-    # dataset = TensorDataset(X, Y)
-    # train_size = int(len(dataset) * 0.7)
-    # test_size = len(dataset) - train_size
-    # train_dataset, test_dataset = random_split(dataset, [train_size, test_size])
+        # 1. Prepare Data
+        X, Y = load_and_encode_data('working_dir\\game_dict_100K_random.json')
 
-    # train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-    # test_loader = DataLoader(test_dataset, batch_size=64, shuffle=True)
+        # 2. Configure dataloader and partition into train and test sets
+        dataset = TensorDataset(X, Y)
 
-    # # 3. Instantiate Model
-    # net = TicTacToeNet().to(device)
+        train_size = int(len(dataset) * 0.8)
+        test_size = len(dataset) - train_size
 
-    # # 4. Execute Training
-    # train_loss_history, test_loss_history = train(net, train_loader, test_loader, device)
+        generator = torch.Generator()
+        generator.manual_seed(42)
 
-    # # 5. Save the result
-    # torch.save(net.state_dict(), "tictactoe_model.pth")
-    # print("\nModel saved to tictactoe_model.pth")
+        train_dataset, test_dataset = random_split(
+            dataset,
+            [train_size, test_size],
+            generator=generator
+        )
 
-    # # 6. Plot loss over epochs
-    # plt.figure()
-    # epoch_axis = list(range(len(train_loss_history)))
-    # plt.plot(epoch_axis, train_loss_history, label = "Train Loss")
+        # 2.5 Load as usual
+        train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
 
-    # eval_axis = list(range(0, len(train_loss_history), 50))
-    # plt.plot(eval_axis, test_loss_history, label = "Test Loss")
+        # 3. Instantiate Model
+        net = TicTacToeNet().to(device)
 
-    # plt.title('Loss over epochs: train and test')
-    # plt.xlabel('Epochs')
-    # plt.ylabel('Loss (MSE)')
-    # plt.legend()
-    # plt.show()
+        # 4. Execute Training
+        train_loss_history, test_loss_history = train(net, train_loader, test_loader, device)
 
+        # 5. Save the result
+        torch.save(net.state_dict(), "tictactoe_model.pth")
+        print("\nModel saved to tictactoe_model.pth")
 
-    load_and_encode_data('states_greedy.json')
+        # 6. Plot loss over epochs
+        plt.figure()
+        epoch_axis = list(range(len(train_loss_history)))
+        plt.plot(epoch_axis, train_loss_history, label = "Train Loss")
+
+        eval_axis = list(range(0, len(train_loss_history), 50))
+        plt.plot(eval_axis, test_loss_history, label = "Test Loss")
+
+        plt.title('Loss over epochs: train and test')
+        plt.xlabel('Epochs')
+        plt.ylabel('Loss (MSE)')
+        plt.legend()
+        plt.show()
+
+    elif operation_mode == "INFERENCE":
+        model = load_network("tictactoe_model.pth", torch.device("cpu"))
+        board = "202012101" # "102010201"
+        score = predict_score(model, board, torch.device("cpu"))
+        print(f'{board}, {score}')
