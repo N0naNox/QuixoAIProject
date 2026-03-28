@@ -5,7 +5,9 @@ from torch.utils.data import TensorDataset, DataLoader, random_split
 import json
 import matplotlib.pyplot as plt
 
-operation_mode = "INFERENCE"
+operation_mode = "INFERENCE"  
+EPOCHS = 150
+EVAL_EVERY = 10
 
 # Data preparation
 def load_and_encode_data(file_path):
@@ -21,12 +23,12 @@ def load_and_encode_data(file_path):
 
     for board_str, values in raw_data.items():
         # Clean: "[001...]" -> "001..."
-        clean_board = board_str[1:-1]
+        #clean_board = board_str[1:-1]
 
         # Encode: 0 -> [1,0,0], 1 -> [0,1,0], 2 -> [0,0,1]
         board_vector = []
-        for char in clean_board:
-            val = int(char)
+        for char in board_str:
+            val = 0 if char == ' ' else 1 if char == 'X' else 2
             one_hot = [0.0, 0.0, 0.0]
             one_hot[val] = 1.0
             board_vector.extend(one_hot)
@@ -39,11 +41,11 @@ def load_and_encode_data(file_path):
 # Model definition
 
 
-class TicTacToeNet(nn.Module):
+class QuixoNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.layer1 = nn.Linear(27, 64)
-        self.layer2 = nn.Linear(64, 64)
+        self.layer1 = nn.Linear(75, 128)
+        self.layer2 = nn.Linear(128, 64)
         self.output = nn.Linear(64, 1)
 
     def forward(self, x):
@@ -62,11 +64,12 @@ class TicTacToeNet(nn.Module):
         return x
 
 # Training
-def train(model, train_loader, test_loader, device, epochs=2000, learning_rate=0.001):
+def train(model, train_loader, test_loader, device, epochs=EPOCHS, learning_rate=0.001, eval_every=EVAL_EVERY):
     loss_fn = nn.MSELoss()
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=0.01)
 
     train_loss_history = []
+    test_eval_epochs = []
     test_loss_history = []
 
     print("\nStarting Training Loop...")
@@ -92,12 +95,15 @@ def train(model, train_loader, test_loader, device, epochs=2000, learning_rate=0
         avg_loss = total_loss / len(train_loader)
         train_loss_history.append(avg_loss)
 
-        if epoch % 50 == 0:
+        if epoch % eval_every == 0 or epoch == epochs - 1:
             avg_test_loss = evaluate(model, test_loader, device)
             test_loss_history.append(avg_test_loss)
+            test_eval_epochs.append(epoch)
             print(f"Epoch {epoch} | Average Training Loss: {avg_loss:.5f} | Average Test Loss: {avg_test_loss:.5f}")
 
-    return train_loss_history, test_loss_history
+       
+
+    return train_loss_history, test_loss_history, test_eval_epochs
 
 # Evaluation
 def evaluate(model, loader, device):
@@ -119,12 +125,12 @@ def evaluate(model, loader, device):
 # Load network weights from .pth file
 def load_network(model_path, device):
     """
-    Loads a saved TicTacToeNet model from a .pth file.
+    Loads a saved QuixoNet model from a .pth file.
     """
     print(f"Loading model from {model_path}...")
 
     # 1. Instantiate a fresh model
-    model = TicTacToeNet().to(device)
+    model = QuixoNet().to(device)
 
     # 2. Load the saved weights into the model
     model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
@@ -137,14 +143,14 @@ def load_network(model_path, device):
 # Encode board for input into network
 def encode_single_board(board_str):
     """
-    Cleans and one-hot encodes a single Tic-Tac-Toe board string.
+    Cleans and one-hot encodes a single Quixo board string.
     Example: "[102010201]" -> [0.0, 1.0, 0.0, 1.0, 0.0, 0.0, ...]
     """
-    clean_board = board_str.strip("[]")
+    #clean_board = board_str.strip("[]")
 
     board_vector = []
-    for char in clean_board:
-        val = int(char)
+    for char in board_str:
+        val = 0 if char == ' ' else 1 if char == 'X' else 2
         one_hot = [0.0, 0.0, 0.0]
         one_hot[val] = 1.0
         board_vector.extend(one_hot)
@@ -159,7 +165,7 @@ def predict_score(model, board_str, device):
     # 1. Encode the board using our helper function
     board_vector = encode_single_board(board_str)
 
-    # 2. Convert to tensor and add a "batch" dimension (shape becomes [1, 27])
+    # 2. Convert to tensor and add a "batch" dimension (shape becomes [1, 75])
     x_tensor = torch.tensor([board_vector]).to(device)
 
     # 3. Make the prediction without calculating gradients
@@ -182,7 +188,7 @@ if __name__ == "__main__":
         print(f"Device selected: {device}")
 
         # 1. Prepare Data
-        X, Y = load_and_encode_data('working_dir\\game_dict_100K_random.json')
+        X, Y = load_and_encode_data('states_random.json')
 
         # 2. Configure dataloader and partition into train and test sets
         dataset = TensorDataset(X, Y)
@@ -200,26 +206,31 @@ if __name__ == "__main__":
         )
 
         # 2.5 Load as usual
-        train_loader = DataLoader(train_dataset, batch_size=64, shuffle=True)
-        test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=4096, shuffle=True)
+        test_loader = DataLoader(test_dataset, batch_size=4096, shuffle=False)
 
         # 3. Instantiate Model
-        net = TicTacToeNet().to(device)
+        net = QuixoNet().to(device)
 
         # 4. Execute Training
-        train_loss_history, test_loss_history = train(net, train_loader, test_loader, device)
+        train_loss_history, test_loss_history, test_eval_epochs = train(
+            net,
+            train_loader,
+            test_loader,
+            device,
+            epochs=EPOCHS,
+            eval_every=EVAL_EVERY
+        )
 
         # 5. Save the result
-        torch.save(net.state_dict(), "tictactoe_model.pth")
-        print("\nModel saved to tictactoe_model.pth")
+        torch.save(net.state_dict(), "quixo_model.pth")
+        print("\nModel saved to quixo_model.pth")
 
         # 6. Plot loss over epochs
         plt.figure()
         epoch_axis = list(range(len(train_loss_history)))
         plt.plot(epoch_axis, train_loss_history, label = "Train Loss")
-
-        eval_axis = list(range(0, len(train_loss_history), 50))
-        plt.plot(eval_axis, test_loss_history, label = "Test Loss")
+        plt.plot(test_eval_epochs, test_loss_history, label = "Test Loss")
 
         plt.title('Loss over epochs: train and test')
         plt.xlabel('Epochs')
@@ -228,7 +239,7 @@ if __name__ == "__main__":
         plt.show()
 
     elif operation_mode == "INFERENCE":
-        model = load_network("tictactoe_model.pth", torch.device("cpu"))
-        board = "202012101" # "102010201"
+        model = load_network("quixo_model.pth", torch.device("cpu"))
+        board = "     X    O    XX   XO   "
         score = predict_score(model, board, torch.device("cpu"))
         print(f'{board}, {score}')
