@@ -9,10 +9,21 @@ operation_mode = "INFERENCE"
 EPOCHS = 150
 EVAL_EVERY = 10
 
+
+def count_to_weight(count):
+    """
+    Convert a board occurrence count into a training weight.
+
+    sqrt(count) is a practical compromise: common boards matter more,
+    but extremely frequent boards do not completely dominate training.
+    """
+    return float(count) ** 0.5
+
 # Data preparation
 def load_and_encode_data(file_path):
     """
-    Loads data from JSON and converts it to One-Hot Encoded Tensors
+    Loads data from JSON and converts it to one-hot encoded tensors.
+    Also returns a per-sample weight derived from the state's occurrence count.
     """
     print(f"Reading data from {file_path}...")
     with open(file_path, 'r') as f:
@@ -20,6 +31,7 @@ def load_and_encode_data(file_path):
 
     X_list = []
     Y_list = []
+    W_list = []
 
     for board_str, values in raw_data.items():
         # Clean: "[001...]" -> "001..."
@@ -35,8 +47,19 @@ def load_and_encode_data(file_path):
 
         X_list.append(board_vector)
         Y_list.append([values[0]])
+        W_list.append([count_to_weight(values[1])])
 
-    return torch.tensor(X_list), torch.tensor(Y_list)
+    return (
+        torch.tensor(X_list, dtype=torch.float32),
+        torch.tensor(Y_list, dtype=torch.float32),
+        torch.tensor(W_list, dtype=torch.float32)
+    )
+
+
+def weighted_mse_loss(predictions, targets, weights):
+    squared_error = (predictions - targets) ** 2
+    weighted_error = squared_error * weights
+    return weighted_error.sum() / weights.sum().clamp_min(1e-8)
 
 # Model definition
 
@@ -65,7 +88,6 @@ class QuixoNet(nn.Module):
 
 # Training
 def train(model, train_loader, test_loader, device, epochs=EPOCHS, learning_rate=0.001, eval_every=EVAL_EVERY):
-    loss_fn = nn.MSELoss()
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=0.01)
 
     train_loss_history = []
@@ -77,14 +99,16 @@ def train(model, train_loader, test_loader, device, epochs=EPOCHS, learning_rate
         model.train()
         total_loss = 0
 
-        for batch_X, batch_Y in train_loader:
-            batch_X, batch_Y = batch_X.to(device), batch_Y.to(device)
+        for batch_X, batch_Y, batch_W in train_loader:
+            batch_X = batch_X.to(device)
+            batch_Y = batch_Y.to(device)
+            batch_W = batch_W.to(device)
 
             optimizer.zero_grad()
             # Forward pass
             y_pred = model(batch_X)
             # Calculate loss
-            loss = loss_fn(y_pred, batch_Y)
+            loss = weighted_mse_loss(y_pred, batch_Y, batch_W)
             # Backward pass
             loss.backward()
             # Weight update
@@ -108,14 +132,15 @@ def train(model, train_loader, test_loader, device, epochs=EPOCHS, learning_rate
 # Evaluation
 def evaluate(model, loader, device):
     model.eval()  # Set model to evaluation mode
-    loss_fn = nn.MSELoss()
     total_loss = 0
 
     with torch.no_grad():  # Disable gradient calculation for efficiency
-        for batch_X, batch_Y in loader:
-            batch_X, batch_Y = batch_X.to(device), batch_Y.to(device)
+        for batch_X, batch_Y, batch_W in loader:
+            batch_X = batch_X.to(device)
+            batch_Y = batch_Y.to(device)
+            batch_W = batch_W.to(device)
             predictions = model(batch_X)
-            loss = loss_fn(predictions, batch_Y)
+            loss = weighted_mse_loss(predictions, batch_Y, batch_W)
             total_loss += loss.item()
 
     avg_loss = total_loss / len(loader)
@@ -188,10 +213,10 @@ if __name__ == "__main__":
         print(f"Device selected: {device}")
 
         # 1. Prepare Data
-        X, Y = load_and_encode_data('states_random.json')
+        X, Y, W = load_and_encode_data('states_heuristic.json')
 
         # 2. Configure dataloader and partition into train and test sets
-        dataset = TensorDataset(X, Y)
+        dataset = TensorDataset(X, Y, W)
 
         train_size = int(len(dataset) * 0.8)
         test_size = len(dataset) - train_size
@@ -240,6 +265,6 @@ if __name__ == "__main__":
 
     elif operation_mode == "INFERENCE":
         model = load_network("quixo_model.pth", torch.device("cpu"))
-        board = "     X    O    XX   XO   "
+        board = "O        X    O    XXX XO"
         score = predict_score(model, board, torch.device("cpu"))
         print(f'{board}, {score}')
