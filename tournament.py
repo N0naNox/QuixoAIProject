@@ -1,4 +1,5 @@
 import json
+import time
 from game import Game
 
 
@@ -13,10 +14,13 @@ class Tournament:
         self.states_dict = states_dict or {}
         self.stats = {
             'VICTORY_X': 0,
-            'VICTORY_O': 0
+            'VICTORY_O': 0,
+            'DRAW': 0
         }
 
-    def run(self, num_games=1000, play_mode='RANDOM', epsilon=0.1):
+    def run(self, num_games=1000, play_mode='RANDOM', epsilon=0.1,
+            opponent_play_mode='RANDOM', max_moves_per_game=None,
+            progress_interval=None):
         """
         Run the tournament for the specified number of games.
 
@@ -24,21 +28,41 @@ class Tournament:
             num_games: Number of games to play
             play_mode: 'RANDOM', 'GREEDY', or 'HEURISTIC'
             epsilon: Exploration rate for greedy/heuristic agents
+            opponent_play_mode: Policy used by O ('RANDOM', 'GREEDY', 'HEURISTIC')
+            max_moves_per_game: Optional cap to stop very long games
+            progress_interval: Optional print interval for progress updates
 
         Returns:
             List of unknown_rates per game
         """
         unknown_rates = []
+        start_time = time.time()
         for i in range(num_games):
             game = Game(play_mode=play_mode, states_dict=self.states_dict,
+                        opponent_play_mode=opponent_play_mode,
                         epsilon=epsilon)
-            scores, unknown_rate = game.play()
+            scores, unknown_rate = game.play(max_moves=max_moves_per_game)
             self.save_game_to_dict(scores)
             unknown_rates.append(unknown_rate)
             if game.outcome == 'VICTORY_X':
                 self.stats['VICTORY_X'] += 1
             elif game.outcome == 'VICTORY_O':
                 self.stats['VICTORY_O'] += 1
+            else:
+                self.stats['DRAW'] += 1
+
+            if progress_interval and (i + 1) % progress_interval == 0:
+                elapsed = time.time() - start_time
+                games_done = i + 1
+                rate = games_done / elapsed if elapsed > 0 else 0.0
+                remaining_games = num_games - games_done
+                eta_seconds = remaining_games / rate if rate > 0 else 0.0
+                print(
+                    f"  Progress: {games_done}/{num_games} games | "
+                    f"elapsed {elapsed / 60:.1f} min | "
+                    f"eta {eta_seconds / 60:.1f} min | "
+                    f"states {len(self.states_dict)} | draws {self.stats['DRAW']}"
+                )
 
         return unknown_rates
 
@@ -69,6 +93,7 @@ class Tournament:
         print("=" * 50)
         print(f"X Wins: {self.stats['VICTORY_X']}")
         print(f"O Wins: {self.stats['VICTORY_O']}")
+        print(f"Draws: {self.stats['DRAW']}")
         if total > 0:
             print(f"X Win Rate: {self.stats['VICTORY_X'] / total * 100:.1f}%")
         print("=" * 50 + "\n")

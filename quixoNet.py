@@ -5,9 +5,12 @@ from torch.utils.data import TensorDataset, DataLoader, random_split
 import json
 import matplotlib.pyplot as plt
 
-operation_mode = "INFERENCE"  
-EPOCHS = 150
+operation_mode = "TRAIN"  # Change to "TRAIN" to train the model, or "INFERENCE" to load and predict
+EPOCHS = 300
 EVAL_EVERY = 10
+LEARNING_RATE = 1e-3
+BATCH_SIZE = 4096
+SEED = 42
 
 
 def count_to_weight(count):
@@ -18,6 +21,33 @@ def count_to_weight(count):
     but extremely frequent boards do not completely dominate training.
     """
     return float(count) ** 0.5
+
+
+def split_state_string(state_str):
+    """Split a serialized state into player-to-move and 25-cell board string."""
+    if len(state_str) >= 2 and state_str[1] == ':' and state_str[0] in {'X', 'O'}:
+        return state_str[0], state_str[2:]
+    return None, state_str
+
+
+def encode_state(state_str):
+    current_player, board_str = split_state_string(state_str)
+
+    board_vector = []
+    for char in board_str:
+        val = 0 if char == ' ' else 1 if char == 'X' else 2
+        one_hot = [0.0, 0.0, 0.0]
+        one_hot[val] = 1.0
+        board_vector.extend(one_hot)
+
+    if current_player == 'X':
+        player_vector = [1.0, 0.0]
+    elif current_player == 'O':
+        player_vector = [0.0, 1.0]
+    else:
+        player_vector = [0.5, 0.5]
+
+    return board_vector + player_vector
 
 # Data preparation
 def load_and_encode_data(file_path):
@@ -33,19 +63,8 @@ def load_and_encode_data(file_path):
     Y_list = []
     W_list = []
 
-    for board_str, values in raw_data.items():
-        # Clean: "[001...]" -> "001..."
-        #clean_board = board_str[1:-1]
-
-        # Encode: 0 -> [1,0,0], 1 -> [0,1,0], 2 -> [0,0,1]
-        board_vector = []
-        for char in board_str:
-            val = 0 if char == ' ' else 1 if char == 'X' else 2
-            one_hot = [0.0, 0.0, 0.0]
-            one_hot[val] = 1.0
-            board_vector.extend(one_hot)
-
-        X_list.append(board_vector)
+    for state_str, values in raw_data.items():
+        X_list.append(encode_state(state_str))
         Y_list.append([values[0]])
         W_list.append([count_to_weight(values[1])])
 
@@ -67,7 +86,8 @@ def weighted_mse_loss(predictions, targets, weights):
 class QuixoNet(nn.Module):
     def __init__(self):
         super().__init__()
-        self.layer1 = nn.Linear(75, 128)
+        # 25 board cells x 3 one-hot values + 2 values for player-to-move.
+        self.layer1 = nn.Linear(77, 128)
         self.layer2 = nn.Linear(128, 64)
         self.output = nn.Linear(64, 1)
 
@@ -89,6 +109,7 @@ class QuixoNet(nn.Module):
 # Training
 def train(model, train_loader, test_loader, device, epochs=EPOCHS, learning_rate=0.001, eval_every=EVAL_EVERY):
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=0.01)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10)
 
     train_loss_history = []
     test_eval_epochs = []
@@ -123,6 +144,7 @@ def train(model, train_loader, test_loader, device, epochs=EPOCHS, learning_rate
             avg_test_loss = evaluate(model, test_loader, device)
             test_loss_history.append(avg_test_loss)
             test_eval_epochs.append(epoch)
+            scheduler.step(avg_test_loss)
             print(f"Epoch {epoch} | Average Training Loss: {avg_loss:.5f} | Average Test Loss: {avg_test_loss:.5f}")
 
        
@@ -168,19 +190,10 @@ def load_network(model_path, device):
 # Encode board for input into network
 def encode_single_board(board_str):
     """
-    Cleans and one-hot encodes a single Quixo board string.
-    Example: "[102010201]" -> [0.0, 1.0, 0.0, 1.0, 0.0, 0.0, ...]
+    One-hot encodes a single Quixo state string.
+    Preferred format: "X:<25 board chars>" or "O:<25 board chars>".
     """
-    #clean_board = board_str.strip("[]")
-
-    board_vector = []
-    for char in board_str:
-        val = 0 if char == ' ' else 1 if char == 'X' else 2
-        one_hot = [0.0, 0.0, 0.0]
-        one_hot[val] = 1.0
-        board_vector.extend(one_hot)
-
-    return board_vector
+    return encode_state(board_str)
 
 # Perform inference to get score prediction
 def predict_score(model, board_str, device):
@@ -190,7 +203,7 @@ def predict_score(model, board_str, device):
     # 1. Encode the board using our helper function
     board_vector = encode_single_board(board_str)
 
-    # 2. Convert to tensor and add a "batch" dimension (shape becomes [1, 75])
+    # 2. Convert to tensor and add a "batch" dimension (shape becomes [1, 77])
     x_tensor = torch.tensor([board_vector]).to(device)
 
     # 3. Make the prediction without calculating gradients
@@ -205,6 +218,10 @@ if __name__ == "__main__":
 
     if operation_mode == "TRAIN":
         # 0. Choose device
+        torch.manual_seed(SEED)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(SEED)
+
         if torch.cuda.is_available():
             device = torch.device("cuda")
         else:
@@ -222,7 +239,7 @@ if __name__ == "__main__":
         test_size = len(dataset) - train_size
 
         generator = torch.Generator()
-        generator.manual_seed(42)
+        generator.manual_seed(SEED)
 
         train_dataset, test_dataset = random_split(
             dataset,
@@ -231,8 +248,9 @@ if __name__ == "__main__":
         )
 
         # 2.5 Load as usual
-        train_loader = DataLoader(train_dataset, batch_size=4096, shuffle=True)
-        test_loader = DataLoader(test_dataset, batch_size=4096, shuffle=False)
+        train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True,
+                      generator=generator)
+        test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
         # 3. Instantiate Model
         net = QuixoNet().to(device)
@@ -244,6 +262,7 @@ if __name__ == "__main__":
             test_loader,
             device,
             epochs=EPOCHS,
+            learning_rate=LEARNING_RATE,
             eval_every=EVAL_EVERY
         )
 
@@ -265,6 +284,6 @@ if __name__ == "__main__":
 
     elif operation_mode == "INFERENCE":
         model = load_network("quixo_model.pth", torch.device("cpu"))
-        board = "O        X    O    XXX XO"
+        board = "X: O X          OX   OX X O"
         score = predict_score(model, board, torch.device("cpu"))
         print(f'{board}, {score}')

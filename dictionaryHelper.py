@@ -11,7 +11,7 @@ def print_lines(num_lines, dict):
 
 if __name__ == "__main__":
     try:
-        with open("states_random.json", "r") as f:
+        with open("states_heuristic.json", "r") as f:
             loaded_dict = json.load(f)
         print("Dictionary loaded successfully for the agent.")
         print_lines(10, loaded_dict)
