@@ -1,6 +1,11 @@
 import numpy as np
 import json
 import random
+from quixoNet import load_network, predict_score
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader, random_split
 
 
 def other_player(player):
@@ -23,12 +28,13 @@ class Game:
     def __init__(self, play_mode='RANDOM', output_mode='SILENT', states_dict=None,
                  opponent_play_mode=None,
                  epsilon=0.1, unknown_score=0.5, discount_factor=0.9,
-                 win_score=1.0, loss_score=0.0, draw_score=0.5):
+                 win_score=1.0, loss_score=0.0, draw_score=0.5, model=None):
         self.play_mode = play_mode
         self.opponent_play_mode = opponent_play_mode or play_mode
         self.output_mode = output_mode
         self.states_dict = states_dict or {}
         self.epsilon = epsilon
+        self.model = model
         self.unknown_score = unknown_score
         self.discount_factor = discount_factor
         self.win_score = win_score
@@ -43,6 +49,11 @@ class Game:
 
     def get_active_play_mode(self):
         return self.play_mode if self.current_player == 'X' else self.opponent_play_mode
+
+    def get_model_device(self):
+        if self.model is None:
+            return torch.device("cpu")
+        return next(self.model.parameters()).device
 
     def lookup_state_entry(self, board, player_to_move):
         state_key = hash_board(board, player_to_move)
@@ -80,6 +91,8 @@ class Game:
             active_play_mode = self.get_active_play_mode()
             if active_play_mode == 'GREEDY':
                 self.perform_greedy_agent_move()
+            elif active_play_mode == 'NN':
+                self.perform_nn_agent_move()
             elif active_play_mode == 'HEURISTIC':
                 self.perform_heuristic_agent_move()
             else:
@@ -210,17 +223,7 @@ class Game:
         for move in all_moves:
             board_copy = self.board.copy()
             self.make_move(*move)
-            entry = self.lookup_state_entry(self.board, opponent)
-            if entry is not None:
-                score = entry[0]
-            else:
-                # Unknown board – use unknown_score + strategic bonus
-                score = self.unknown_score
-                if (move[0], move[1]) in strategic:
-                    if current_player == 'X':
-                        score = min(1.0, score + STRATEGIC_BONUS)
-                    else:
-                        score = max(0.0, score - STRATEGIC_BONUS)
+            score = self.unknown_score 
             move_scores.append((move, score))
             self.board = board_copy
 
@@ -230,6 +233,103 @@ class Game:
             move_scores.sort(key=lambda x: x[1], reverse=current_player == 'X')
             move = move_scores[0][0]
         self.make_move(*move)
+
+
+    def perform_nn_agent_move(self):
+        if self.model is None:
+            self.perform_greedy_agent_move()
+            return
+
+        current_player = self.current_player
+        opponent = other_player(current_player)
+        model_device = self.get_model_device()
+        my_positions = self.get_valid_positions()
+        all_moves = []
+        for row, col in my_positions:
+            for direction in self.get_valid_directions(row, col):
+                all_moves.append((row, col, direction))
+
+        # 1. Check for a winning move
+        for move in all_moves:
+            board_copy = self.board.copy()
+            self.make_move(*move)
+            if self.check_win() == victory_for(current_player):
+                # Board already has the winning move applied – keep it
+                return
+            self.board = board_copy
+
+        # 2. Check for blocking moves
+        #    Temporarily switch to opponent to find their valid positions & moves
+        saved_player = self.current_player
+        self.current_player = opponent
+        opp_positions = self.get_valid_positions()  # Opponent's valid picks
+        opponent_can_win = False
+        for orow, ocol in opp_positions:
+            for odir in self.get_valid_directions(orow, ocol):
+                board_copy = self.board.copy()
+                self.make_move(orow, ocol, odir)
+                if self.check_win() == victory_for(opponent):
+                    opponent_can_win = True
+                self.board = board_copy
+                if opponent_can_win:
+                    break
+            if opponent_can_win:
+                break
+        self.current_player = saved_player
+
+        if opponent_can_win:
+            # Try each of our moves; pick one where opponent can no longer win
+            for move in all_moves:
+                board_copy = self.board.copy()
+                self.make_move(*move)
+                # Check opponent's options on the new board
+                still_wins = False
+                self.current_player = opponent
+                opp_positions2 = self.get_valid_positions()
+                for orow, ocol in opp_positions2:
+                    for odir in self.get_valid_directions(orow, ocol):
+                        board_copy2 = self.board.copy()
+                        self.make_move(orow, ocol, odir)
+                        if self.check_win() == victory_for(opponent):
+                            still_wins = True
+                        self.board = board_copy2
+                        if still_wins:
+                            break
+                    if still_wins:
+                        break
+                self.current_player = saved_player
+                if not still_wins:
+                    # This move blocks – keep it (board already has the move applied)
+                    return
+                self.board = board_copy
+
+        # 3. Greedy logic with strategic position bonus
+        #    Evaluate all moves using dictionary, but give a small bonus to
+        #    strategic positions (corners) when the dictionary score is unknown.
+        strategic = {(0, 0), (0, 4), (4, 0), (4, 4)}
+        STRATEGIC_BONUS = 0.05  # Small bonus for strategic positions
+
+        move_scores = []
+        for move in all_moves:
+            board_copy = self.board.copy()
+            self.make_move(*move)
+            
+            score = predict_score(
+                self.model,
+                hash_board(self.board, other_player(self.current_player)),
+                model_device,
+            )
+
+            move_scores.append((move, score))
+            self.board = board_copy
+
+        if random.random() < self.epsilon:
+            move = random.choice(move_scores)[0]
+        else:
+            move_scores.sort(key=lambda x: x[1], reverse=current_player == 'X')
+            move = move_scores[0][0]
+        self.make_move(*move)
+        
 
     # ── Board helpers ───────────────────────────────────────────────────
 

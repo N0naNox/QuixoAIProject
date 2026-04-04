@@ -10,6 +10,7 @@ class Tournament:
 
         Args:
             states_dict: Dictionary of board states for greedy/heuristic agent
+            model: Neural network model for heuristic agent
         """
         self.states_dict = states_dict or {}
         self.stats = {
@@ -20,7 +21,7 @@ class Tournament:
 
     def run(self, num_games=1000, play_mode='RANDOM', epsilon=0.1,
             opponent_play_mode='RANDOM', max_moves_per_game=None,
-            progress_interval=None):
+            progress_interval=None, model=None):
         """
         Run the tournament for the specified number of games.
 
@@ -40,7 +41,7 @@ class Tournament:
         for i in range(num_games):
             game = Game(play_mode=play_mode, states_dict=self.states_dict,
                         opponent_play_mode=opponent_play_mode,
-                        epsilon=epsilon)
+                        epsilon=epsilon, model=model)
             scores, unknown_rate = game.play(max_moves=max_moves_per_game)
             self.save_game_to_dict(scores)
             unknown_rates.append(unknown_rate)
