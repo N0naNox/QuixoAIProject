@@ -16,6 +16,11 @@ from tournament import Tournament
 DICT_SIZE = 100_000       # Number of games for dictionary generation
 TOURNAMENT_SIZE = 1000    # Number of games for performance tournaments
 UNKNOWN_TEST_SIZE = 100   # Number of games for unknown-rate analysis
+MAX_MOVES_PER_GAME = 700
+HEURISTIC_PROGRESS_INTERVAL = 1000
+DICT_OPPONENT_MODE = 'RANDOM'
+GREEDY_EPSILON = 0.1
+HEURISTIC_EPSILON = 0.1
 
 
 def load_dict(filename):
@@ -26,7 +31,8 @@ def load_dict(filename):
     return None
 
 
-def generate_dictionary(filename, play_mode, num_games, epsilon=0.1):
+def generate_dictionary(filename, play_mode, num_games, epsilon=0.1,
+                        opponent_play_mode=DICT_OPPONENT_MODE):
     """Generate a dictionary by running num_games and save to file."""
     print(f"\n{'='*60}")
     print(f"Generating {play_mode} dictionary ({num_games} games)...")
@@ -34,7 +40,11 @@ def generate_dictionary(filename, play_mode, num_games, epsilon=0.1):
 
     t = Tournament()
     start = time.time()
-    t.run(num_games, play_mode=play_mode, epsilon=epsilon)
+    progress_interval = HEURISTIC_PROGRESS_INTERVAL if play_mode == 'HEURISTIC' else None
+    t.run(num_games, play_mode=play_mode, epsilon=epsilon,
+          opponent_play_mode=opponent_play_mode,
+          max_moves_per_game=MAX_MOVES_PER_GAME,
+          progress_interval=progress_interval)
     elapsed = time.time() - start
 
     t.save_dict_to_file(filename)
@@ -42,6 +52,7 @@ def generate_dictionary(filename, play_mode, num_games, epsilon=0.1):
     print(f"  Dictionary size: {len(t.states_dict)} boards")
     print(f"  Saved to: {filename}")
     return t.states_dict
+
 
 
 def run_performance_tournament(states_dict, play_mode, label, epsilon=0.1):
@@ -77,15 +88,16 @@ if __name__ == "__main__":
     # Greedy dictionary (uses the random dictionary as base)
     greedy_dict = load_dict('states_greedy.json')
     if greedy_dict is None:
-        greedy_dict = generate_dictionary('states_greedy.json', 'GREEDY', DICT_SIZE)
+        greedy_dict = generate_dictionary('states_greedy.json', 'GREEDY', DICT_SIZE,
+                                          epsilon=GREEDY_EPSILON)
     else:
         print(f"Loaded existing greedy dictionary ({len(greedy_dict)} boards)")
 
-    # Heuristic dictionary (epsilon=0.5 per assignment)
+    # Heuristic dictionary
     heuristic_dict = load_dict('states_heuristic.json')
     if heuristic_dict is None:
         heuristic_dict = generate_dictionary('states_heuristic.json', 'HEURISTIC',
-                                              DICT_SIZE, epsilon=0.5)
+                                             DICT_SIZE, epsilon=HEURISTIC_EPSILON)
     else:
         print(f"Loaded existing heuristic dictionary ({len(heuristic_dict)} boards)")
 
@@ -110,12 +122,11 @@ if __name__ == "__main__":
                                "Greedy + Heuristic Dict")
 
     # Heuristic agent with different dictionaries
-    # The heuristic dict was trained with eps=0.5 (noisy), greedy dict with eps=0.1 (cleaner)
     run_performance_tournament(greedy_dict, 'HEURISTIC',
-                               "Heuristic + Greedy Dict (eps=0.1)", epsilon=0.1)
+                               "Heuristic + Greedy Dict", epsilon=HEURISTIC_EPSILON)
     
     run_performance_tournament(heuristic_dict, 'HEURISTIC',
-                               "Heuristic + Heuristic Dict (eps=0.1)", epsilon=0.9)
+                               "Heuristic + Heuristic Dict", epsilon=HEURISTIC_EPSILON)
 
     # ──────────────────────────────────────────────────────────────────
     # STEP 3: Unknown-rate analysis (100 games)

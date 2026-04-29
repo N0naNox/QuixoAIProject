@@ -4,6 +4,12 @@ import tkinter as tk
 
 from game import Game
 from view import QuixoGameView
+from quixoNet import load_network, predict_score
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader, random_split
+
 
 # ==============================================================================
 # CONTROLLER
@@ -54,7 +60,9 @@ class MyGameController:
         """Run one AI move, sync the view, then hand control to the human."""
         self._model.current_player = 'X'
 
-        if self._model.play_mode == 'HEURISTIC':
+        if self._model.play_mode == 'NN':
+            self._model.perform_nn_agent_move()
+        elif self._model.play_mode == 'HEURISTIC':
             self._model.perform_heuristic_agent_move()
         elif self._model.play_mode == 'GREEDY':
             self._model.perform_greedy_agent_move()
@@ -207,9 +215,10 @@ class MyGameController:
 # MAIN ENTRY POINT
 # ==============================================================================
 if __name__ == "__main__":
-    # Load the greedy dictionary if it exists (makes the AI much stronger)
+
+    #Load the strongest available dictionary
     states_dict = {}
-    for filename in ('states_greedy.json', 'states_heuristic.json', 'states_random.json'):
+    for filename in ('states_heuristic.json', 'states_greedy.json', 'states_random.json'):
         if os.path.exists(filename):
             with open(filename) as f:
                 raw = json.load(f)
@@ -223,9 +232,10 @@ if __name__ == "__main__":
     root = tk.Tk()
 
     game_model = Game(
-        play_mode='GREEDY',
+        play_mode='NN',   # 'NN', 'HEURISTIC', 'GREEDY', or 'RANDOM'
         output_mode='SILENT',
         states_dict=states_dict,
+        model=load_network('quixo_model.pth', device=torch.device("cpu"))
     )
     game_view = QuixoGameView(root)
 
