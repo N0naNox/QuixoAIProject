@@ -214,16 +214,23 @@ class Game:
                 self.board = board_copy
 
         # 3. Greedy logic with strategic position bonus
-        #    Evaluate all moves using dictionary, but give a small bonus to
-        #    strategic positions (corners) when the dictionary score is unknown.
+        #    Evaluate all moves using dictionary, and add a small bonus for
+        #    strategic corner positions when the score is unknown.
         strategic = {(0, 0), (0, 4), (4, 0), (4, 4)}
         STRATEGIC_BONUS = 0.05  # Small bonus for strategic positions
 
         move_scores = []
+        next_player = other_player(current_player)
         for move in all_moves:
             board_copy = self.board.copy()
             self.make_move(*move)
-            score = self.unknown_score 
+            entry = self.lookup_state_entry(self.board, next_player)
+            if entry is not None:
+                score = entry[0]
+            else:
+                score = self.unknown_score
+                if move[:2] in strategic:
+                    score += STRATEGIC_BONUS
             move_scores.append((move, score))
             self.board = board_copy
 
@@ -241,7 +248,6 @@ class Game:
             return
 
         current_player = self.current_player
-        opponent = other_player(current_player)
         model_device = self.get_model_device()
         my_positions = self.get_valid_positions()
         all_moves = []
@@ -249,74 +255,14 @@ class Game:
             for direction in self.get_valid_directions(row, col):
                 all_moves.append((row, col, direction))
 
-        # 1. Check for a winning move
-        for move in all_moves:
-            board_copy = self.board.copy()
-            self.make_move(*move)
-            if self.check_win() == victory_for(current_player):
-                # Board already has the winning move applied – keep it
-                return
-            self.board = board_copy
-
-        # 2. Check for blocking moves
-        #    Temporarily switch to opponent to find their valid positions & moves
-        saved_player = self.current_player
-        self.current_player = opponent
-        opp_positions = self.get_valid_positions()  # Opponent's valid picks
-        opponent_can_win = False
-        for orow, ocol in opp_positions:
-            for odir in self.get_valid_directions(orow, ocol):
-                board_copy = self.board.copy()
-                self.make_move(orow, ocol, odir)
-                if self.check_win() == victory_for(opponent):
-                    opponent_can_win = True
-                self.board = board_copy
-                if opponent_can_win:
-                    break
-            if opponent_can_win:
-                break
-        self.current_player = saved_player
-
-        if opponent_can_win:
-            # Try each of our moves; pick one where opponent can no longer win
-            for move in all_moves:
-                board_copy = self.board.copy()
-                self.make_move(*move)
-                # Check opponent's options on the new board
-                still_wins = False
-                self.current_player = opponent
-                opp_positions2 = self.get_valid_positions()
-                for orow, ocol in opp_positions2:
-                    for odir in self.get_valid_directions(orow, ocol):
-                        board_copy2 = self.board.copy()
-                        self.make_move(orow, ocol, odir)
-                        if self.check_win() == victory_for(opponent):
-                            still_wins = True
-                        self.board = board_copy2
-                        if still_wins:
-                            break
-                    if still_wins:
-                        break
-                self.current_player = saved_player
-                if not still_wins:
-                    # This move blocks – keep it (board already has the move applied)
-                    return
-                self.board = board_copy
-
-        # 3. Greedy logic with strategic position bonus
-        #    Evaluate all moves using dictionary, but give a small bonus to
-        #    strategic positions (corners) when the dictionary score is unknown.
-        strategic = {(0, 0), (0, 4), (4, 0), (4, 4)}
-        STRATEGIC_BONUS = 0.05  # Small bonus for strategic positions
-
         move_scores = []
+        next_player = other_player(current_player)
         for move in all_moves:
             board_copy = self.board.copy()
             self.make_move(*move)
-            
             score = predict_score(
                 self.model,
-                hash_board(self.board, other_player(self.current_player)),
+                hash_board(self.board, next_player),
                 model_device,
             )
 
