@@ -24,14 +24,15 @@ class MyGameController:
 
     Click flow for the human:
       1st click – select a valid perimeter cell  (empty or 'O').
-      • Corner cells have 2 push directions → a direction-picker popup appears.
-      • Non-corner edge cells have exactly 1 direction → move executes instantly.
+      • The possible positions where the cube can move to are highlighted in pink.
+      • 2nd click – click on a highlighted position to execute the move.
     """
 
     def __init__(self, model: Game, view: QuixoGameView):
         self._model = model
         self._view = view
         self._selected = None   # (row, col) of the cell the human has tapped first
+        self._possible_positions = {}  # (row, col) -> direction for highlighted positions
 
         self._connect_signals()
         self.show_opening_screen()
@@ -61,6 +62,7 @@ class MyGameController:
     def start_new_game(self):
         """Reset model and view, then let X (AI) take the first move."""
         self._selected = None
+        self._possible_positions.clear()
         self._model.reset_game()          # board empty, current_player = 'X'
         self._view.reset_view()           # clears all buttons, status → 'Your turn (O)'
         self._view.disable_board()        # lock the board while AI thinks
@@ -106,6 +108,12 @@ class MyGameController:
 
     def _handle_human_move(self, row: int, col: int):
         """Handle a click on the board while it is the human's turn."""
+        # Check if clicking on a highlighted possible position
+        if (row, col) in self._possible_positions:
+            direction = self._possible_positions[(row, col)]
+            self._execute_human_move(self._selected[0], self._selected[1], direction)
+            return
+
         # Inner cells are never valid in Quixo
         if not (row in (0, 4) or col in (0, 4)):
             self._view.show_warning("Invalid move", "Only perimeter cells can be selected.")
@@ -120,23 +128,34 @@ class MyGameController:
         if self._selected == (row, col):
             self._selected = None
             self._view.unhighlight_all()
+            self._view.unhighlight_possible()
             return
 
         # Clear any previous selection highlight
         if self._selected is not None:
             self._view.unhighlight_all()
+            self._view.unhighlight_possible()
 
         # Select this cell
         self._selected = (row, col)
         self._view.highlight_button(row, col)
 
         dirs = self._model.get_valid_directions(row, col)
-        if len(dirs) == 1:
-            # Non-corner edge: only one direction possible – execute immediately
-            self._execute_human_move(row, col, dirs[0])
-        else:
-            # Corner: let the user choose the push direction
-            self._show_direction_picker(row, col, dirs)
+        # Highlight possible positions
+        self._possible_positions = {}
+        positions = []
+        for d in dirs:
+            if d == "up":
+                pos = (0, col)
+            elif d == "down":
+                pos = (4, col)
+            elif d == "left":
+                pos = (row, 0)
+            elif d == "right":
+                pos = (row, 4)
+            self._possible_positions[pos] = d
+            positions.append(pos)
+        self._view.highlight_possible(positions)
 
     def _show_direction_picker(self, row: int, col: int, dirs: list):
         """Modal popup with a directional-pad layout for choosing a push direction."""
@@ -196,7 +215,9 @@ class MyGameController:
     def _execute_human_move(self, row: int, col: int, direction: str):
         """Apply the validated human move, then schedule the AI's response."""
         self._selected = None
+        self._possible_positions.clear()
         self._view.unhighlight_all()
+        self._view.unhighlight_possible()
 
         self._model.current_player = 'O'
         self._model.make_move(row, col, direction)

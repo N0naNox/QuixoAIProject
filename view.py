@@ -15,6 +15,7 @@ BG_PERIM    = "#45475a"   # default colour for clickable perimeter cells
 BG_INNER    = "#585b70"   # default colour for inner (non-clickable) cells
 BG_X        = "#89b4fa"   # light-blue for X pieces
 BG_O        = "#a6e3a1"   # light-green for O pieces
+BG_POSSIBLE = "#f5c2e7"   # light-pink for possible move positions
 FG_DARK     = "#1e1e2e"   # text on coloured cells
 FG_DOT      = "#cdd6f4"   # dot / empty cell text colour
 BTN_RESET   = "#f38ba8"   # reset button
@@ -48,6 +49,7 @@ class QuixoGameView:
         self._reset_callback = None   # set externally via set_reset_callback()
         self._start_callback = None   # set externally via set_start_callback()
         self._agent_var = tk.StringVar(value="NN")  # selected agent type
+        self._possible_positions = set()  # set of (row, col) currently highlighted as possible
 
         self.buttons: List[List[tk.Button]] = []
         self.opening_frame = None
@@ -453,6 +455,31 @@ AI AGENTS:
                         bg=BG_PERIM if is_perimeter else BG_INNER,
                         fg=FG_DOT,
                     )
+
+    def highlight_possible(self, positions):
+        """Highlight positions that are possible moves with pink color."""
+        self.unhighlight_possible()
+        self._possible_positions = set(positions)
+        for row, col in positions:
+            btn = self.buttons[row][col]
+            btn.config(bg=BG_POSSIBLE, fg=FG_DARK)
+
+    def unhighlight_possible(self):
+        """Remove highlights from possible positions, restoring their natural colors."""
+        for row, col in self._possible_positions:
+            btn = self.buttons[row][col]
+            current_text = btn.cget("text")
+            if current_text == "X":
+                btn.config(bg=BG_X, fg=FG_DARK)
+            elif current_text == "O":
+                btn.config(bg=BG_O, fg=FG_DARK)
+            else:
+                is_perimeter = (row in (0, 4) or col in (0, 4))
+                btn.config(
+                    bg=BG_PERIM if is_perimeter else BG_INNER,
+                    fg=FG_DOT,
+                )
+        self._possible_positions.clear()
 
     def show_message(self, title: str, text: str):
         """Display an info popup."""
