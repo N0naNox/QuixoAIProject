@@ -34,13 +34,27 @@ class MyGameController:
         self._selected = None   # (row, col) of the cell the human has tapped first
 
         self._connect_signals()
-        self.start_new_game()
+        self.show_opening_screen()
 
     # ── Wiring ─────────────────────────────────────────────────────────────────
 
     def _connect_signals(self):
         self._view.set_click_callback(self._handle_human_move)
         self._view.set_reset_callback(self.start_new_game)
+        self._view.set_start_callback(self._handle_start_game)
+
+    def show_opening_screen(self):
+        """Show the opening screen."""
+        self._view.show_opening_screen()
+
+    def _handle_start_game(self, agent_type: str):
+        """Handle start game with selected agent type."""
+        # Update the model's play mode
+        self._model.play_mode = agent_type
+        # Hide opening screen and start the game
+        self._view.hide_opening_screen()
+        self.start_new_game()
+        self._view.set_start_callback(self._handle_start_game)
 
     # ── Game lifecycle ─────────────────────────────────────────────────────────
 
@@ -50,7 +64,17 @@ class MyGameController:
         self._model.reset_game()          # board empty, current_player = 'X'
         self._view.reset_view()           # clears all buttons, status → 'Your turn (O)'
         self._view.disable_board()        # lock the board while AI thinks
-        self._view.set_status("AI is thinking…  (X)")
+        
+        # Update status based on agent type
+        agent_names = {
+            'NN': 'Neural Network',
+            'HEURISTIC': 'Heuristic Agent', 
+            'GREEDY': 'Greedy Agent',
+            'RANDOM': 'Random Agent'
+        }
+        agent_name = agent_names.get(self._model.play_mode, self._model.play_mode)
+        self._view.set_status(f"{agent_name} is thinking…  (X)")
+        
         # Give tkinter a moment to render before the AI blocks
         self._view.root.after(600, self._handle_ai_move)
 
@@ -232,7 +256,7 @@ if __name__ == "__main__":
     root = tk.Tk()
 
     game_model = Game(
-        play_mode='NN',   # 'NN', 'HEURISTIC', 'GREEDY', or 'RANDOM'
+        play_mode='NN',   # Default, will be changed by user selection
         output_mode='SILENT',
         states_dict=states_dict,
         model=load_network('quixo_model.pth', device=torch.device("cpu"))
