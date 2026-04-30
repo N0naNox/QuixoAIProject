@@ -24,7 +24,7 @@ HEURISTIC_EPSILON = 0.1
 
 
 def load_dict(filename):
-    """Load a dictionary from JSON file, or return empty dict if not found."""
+    """This function """
     if os.path.exists(filename):
         with open(filename, 'r') as f:
             return json.load(f)
@@ -138,7 +138,7 @@ if __name__ == "__main__":
     # Random dictionary
     random_dict = load_dict('states_random.json')
     if random_dict is None:
-        random_dict = generate_dictionary('states_random.json', 'RANDOM', DICT_SIZE)
+        random_dict = generate_dictionary('states_random.json', 'RANDOM', DICT_SIZE, epsilon=0.1, opponent_play_mode='RANDOM')
     else:
         print(f"\nLoaded existing random dictionary ({len(random_dict)} boards)")
 
@@ -146,7 +146,7 @@ if __name__ == "__main__":
     greedy_dict = load_dict('states_greedy.json')
     if greedy_dict is None:
         greedy_dict = generate_dictionary('states_greedy.json', 'GREEDY', DICT_SIZE,
-                                          epsilon=GREEDY_EPSILON)
+                                          epsilon=GREEDY_EPSILON, opponent_play_mode='GREEDY')
     else:
         print(f"Loaded existing greedy dictionary ({len(greedy_dict)} boards)")
 
@@ -154,7 +154,7 @@ if __name__ == "__main__":
     heuristic_dict = load_dict('states_heuristic.json')
     if heuristic_dict is None:
         heuristic_dict = generate_dictionary('states_heuristic.json', 'HEURISTIC',
-                                             DICT_SIZE, epsilon=HEURISTIC_EPSILON)
+                                             DICT_SIZE, epsilon=HEURISTIC_EPSILON, opponent_play_mode='HEURISTIC')
     else:
         print(f"Loaded existing heuristic dictionary ({len(heuristic_dict)} boards)")
 
