@@ -53,35 +53,54 @@ class QuixoGameView:
         self.opening_frame = None
         self.game_frame = None
 
-        self._build_opening_screen()
+        # Build game UI first to determine window size
         self._build_game_ui()
+        self._setup_window_size()
+        self._build_opening_screen()
+        
+        # Both frames now overlay; opening is shown initially
+        self.show_opening_screen()
+
+    # ── Setup window size based on game frame ────────────────────────────────
+
+    def _setup_window_size(self):
+        """Calculate and set window size based on game frame content."""
+        self.root.update_idletasks()
+        width = self.root.winfo_reqwidth()
+        height = self.root.winfo_reqheight()
+        self.root.geometry(f"{width}x{height}")
 
     # ── Opening Screen ────────────────────────────────────────────────────────
 
     def _build_opening_screen(self):
         """Build the opening screen with title, instructions, and agent selection."""
         self.opening_frame = tk.Frame(self.root, bg=BG_WINDOW)
-        
+        self.opening_frame.place(x=0, y=0, relwidth=1.0, relheight=1.0)
+
+        # Centered card container with content
+        card = tk.Frame(self.opening_frame, bg=BG_BOARD, padx=28, pady=28)
+        card.pack(expand=True, pady=20)
+
         # Title
         tk.Label(
-            self.opening_frame,
+            card,
             text="Q U I X O",
             font=("Helvetica", 32, "bold"),
-            bg=BG_WINDOW,
+            bg=BG_BOARD,
             fg="#cdd6f4",
-        ).pack(pady=(40, 20))
+        ).pack(pady=(8, 16))
 
         tk.Label(
-            self.opening_frame,
+            card,
             text="AI Agent vs Human",
             font=("Helvetica", 16),
-            bg=BG_WINDOW,
+            bg=BG_BOARD,
             fg="#a6adc8",
-        ).pack(pady=(0, 40))
+        ).pack(pady=(0, 24))
 
         # Instructions button
         tk.Button(
-            self.opening_frame,
+            card,
             text="📖 How to Play",
             font=("Helvetica", 12, "bold"),
             bg="#89b4fa",
@@ -92,19 +111,19 @@ class QuixoGameView:
             pady=10,
             cursor="hand2",
             command=self._show_instructions,
-        ).pack(pady=(0, 30))
+        ).pack(pady=(0, 28))
 
         # Agent selection
         tk.Label(
-            self.opening_frame,
+            card,
             text="Choose AI Agent:",
             font=("Helvetica", 14, "bold"),
-            bg=BG_WINDOW,
+            bg=BG_BOARD,
             fg="#cdd6f4",
-        ).pack(pady=(0, 10))
+        ).pack(pady=(0, 12))
 
-        agent_frame = tk.Frame(self.opening_frame, bg=BG_WINDOW)
-        agent_frame.pack(pady=(0, 30))
+        agent_frame = tk.Frame(card, bg=BG_BOARD)
+        agent_frame.pack(pady=(0, 26))
 
         agents = [
             ("Neural Network (Strongest)", "NN"),
@@ -120,17 +139,17 @@ class QuixoGameView:
                 variable=self._agent_var,
                 value=value,
                 font=("Helvetica", 11),
-                bg=BG_WINDOW,
+                bg=BG_BOARD,
                 fg="#cdd6f4",
-                selectcolor=BG_WINDOW,
-                activebackground=BG_WINDOW,
+                selectcolor=BG_BOARD,
+                activebackground=BG_BOARD,
                 activeforeground="#89b4fa",
                 command=self._on_agent_change,
             ).pack(anchor="w", padx=20, pady=2)
 
         # Start game button
         tk.Button(
-            self.opening_frame,
+            card,
             text="🎮 Start Game",
             font=("Helvetica", 14, "bold"),
             bg="#a6e3a1",
@@ -141,23 +160,18 @@ class QuixoGameView:
             pady=12,
             cursor="hand2",
             command=self._on_start_game,
-        ).pack(pady=(20, 40))
+        ).pack(pady=(20, 18))
 
     def _build_game_ui(self):
         """Build the game UI (board and controls)."""
         self.game_frame = tk.Frame(self.root, bg=BG_WINDOW)
+        self.game_frame.pack()  # Pack initially to measure size
         
         self._build_title(self.game_frame)
         self._build_board(self.game_frame)
         self._build_controls(self.game_frame)
 
     # ── UI construction ────────────────────────────────────────────────────────
-
-    def _build_ui(self):
-        """Build all UI elements."""
-        self._build_title()
-        self._build_board()
-        self._build_controls()
 
     def _build_title(self, parent=None):
         """Header label shown above the board."""
@@ -330,14 +344,13 @@ AI AGENTS:
 
     def show_opening_screen(self):
         """Show the opening screen and hide the game."""
-        if self.game_frame:
-            self.game_frame.pack_forget()
-        self.opening_frame.pack(expand=True, fill=tk.BOTH)
+        self.opening_frame.tkraise()
+        self.game_frame.pack_forget()  # Hide game frame
 
     def hide_opening_screen(self):
         """Hide the opening screen and show the game."""
-        self.opening_frame.pack_forget()
-        self.game_frame.pack(expand=True, fill=tk.BOTH)
+        self.game_frame.pack()  # Show game frame
+        self.game_frame.tkraise()
 
     # ── Public view-update API ─────────────────────────────────────────────────
 
