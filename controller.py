@@ -109,7 +109,7 @@ class MyGameController:
     def _handle_human_move(self, row: int, col: int):
         """Handle a click on the board while it is the human's turn."""
         # Check if clicking on a highlighted possible position
-        if (row, col) in self._possible_positions:
+        if (row, col) in self._possible_positions and self._selected is not None:
             direction = self._possible_positions[(row, col)]
             self._execute_human_move(self._selected[0], self._selected[1], direction)
             return
@@ -127,6 +127,7 @@ class MyGameController:
         # Clicking the same cell a second time deselects it
         if self._selected == (row, col):
             self._selected = None
+            self._possible_positions.clear()
             self._view.unhighlight_all()
             self._view.unhighlight_possible()
             return
