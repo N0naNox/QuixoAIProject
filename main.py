@@ -72,6 +72,63 @@ def run_unknown_rate_analysis(states_dict, label, epsilon=0.1):
     return unknown_rates
 
 
+
+
+
+
+
+
+def test_nn_vs_greedy():
+    import json
+    import os
+    from tournament import Tournament
+    from quixoNet import load_network
+    import torch
+
+    # Load heuristic dictionary
+    if os.path.exists('states_heuristic.json'):
+        with open('states_heuristic.json', 'r') as f:
+            heuristic_dict = json.load(f)
+        print(f"Loaded heuristic dictionary with {len(heuristic_dict)} states")
+    else:
+        print("Heuristic dictionary not found!")
+        return
+
+    # Load neural network model
+    if os.path.exists('quixo_model.pth'):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = load_network('quixo_model.pth', device)
+        print(f"Loaded neural network model on {device}")
+    else:
+        print("Neural network model not found!")
+        return
+
+    # Run tournament 1: Greedy (X) with heuristic dict vs NN (O) with model
+    print("\n" + "="*60)
+    print("Tournament 1: Greedy (X) vs NN (O) - 1000 games")
+    print("="*60)
+    t1 = Tournament(states_dict=heuristic_dict)
+    unknown_rates1 = t1.run(num_games=1000, play_mode='GREEDY', opponent_play_mode='NN', model=model, epsilon=0.1)
+    t1.print_results("Greedy (X) vs NN (O)")
+    Tournament.print_unknown_stats(unknown_rates1, "Greedy (X) vs NN (O)")
+    
+    # Run tournament 2: NN (X) with model vs Greedy (O) with heuristic dict
+    print("\n" + "="*60)
+    print("Tournament 2: NN (X) vs Greedy (O) - 1000 games")
+    print("="*60)
+    t2 = Tournament(states_dict=heuristic_dict)
+    unknown_rates2 = t2.run(num_games=1000, play_mode='NN', opponent_play_mode='GREEDY', model=model, epsilon=0.1)
+    t2.print_results("NN (X) vs Greedy (O)")
+    Tournament.print_unknown_stats(unknown_rates2, "NN (X) vs Greedy (O)")
+    
+    # Summary
+    print("\n" + "="*60)
+    print("SUMMARY")
+    print("="*60)
+    print(f"Greedy (X) win rate when X has dict advantage: {t1.stats['VICTORY_X']/10:.1f}%")
+    print(f"NN (X) win rate when X has dict advantage:     {t2.stats['VICTORY_X']/10:.1f}%")
+
+
 if __name__ == "__main__":
 
     # ──────────────────────────────────────────────────────────────────
@@ -154,57 +211,5 @@ if __name__ == "__main__":
     Tournament.print_dict_quality(random_dict, "Random")
     Tournament.print_dict_quality(greedy_dict, "Greedy")
     Tournament.print_dict_quality(heuristic_dict, "Heuristic")
-
-
-def test_nn_vs_greedy():
-    import json
-    import os
-    from tournament import Tournament
-    from quixoNet import load_network
-    import torch
-
-    # Load heuristic dictionary
-    if os.path.exists('states_heuristic.json'):
-        with open('states_heuristic.json', 'r') as f:
-            heuristic_dict = json.load(f)
-        print(f"Loaded heuristic dictionary with {len(heuristic_dict)} states")
-    else:
-        print("Heuristic dictionary not found!")
-        return
-
-    # Load neural network model
-    if os.path.exists('quixo_model.pth'):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = load_network('quixo_model.pth', device)
-        print(f"Loaded neural network model on {device}")
-    else:
-        print("Neural network model not found!")
-        return
-
-    # Run tournament 1: Greedy (X) with heuristic dict vs NN (O) with model
-    print("\n" + "="*60)
-    print("Tournament 1: Greedy (X) vs NN (O) - 1000 games")
-    print("="*60)
-    t1 = Tournament(states_dict=heuristic_dict)
-    unknown_rates1 = t1.run(num_games=1000, play_mode='GREEDY', opponent_play_mode='NN', model=model, epsilon=0.1)
-    t1.print_results("Greedy (X) vs NN (O)")
-    Tournament.print_unknown_stats(unknown_rates1, "Greedy (X) vs NN (O)")
-    
-    # Run tournament 2: NN (X) with model vs Greedy (O) with heuristic dict
-    print("\n" + "="*60)
-    print("Tournament 2: NN (X) vs Greedy (O) - 1000 games")
-    print("="*60)
-    t2 = Tournament(states_dict=heuristic_dict)
-    unknown_rates2 = t2.run(num_games=1000, play_mode='NN', opponent_play_mode='GREEDY', model=model, epsilon=0.1)
-    t2.print_results("NN (X) vs Greedy (O)")
-    Tournament.print_unknown_stats(unknown_rates2, "NN (X) vs Greedy (O)")
-    
-    # Summary
-    print("\n" + "="*60)
-    print("SUMMARY")
-    print("="*60)
-    print(f"Greedy (X) win rate when X has dict advantage: {t1.stats['VICTORY_X']/10:.1f}%")
-    print(f"NN (X) win rate when X has dict advantage:     {t2.stats['VICTORY_X']/10:.1f}%")
-
 
 
