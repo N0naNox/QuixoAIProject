@@ -52,13 +52,15 @@ class QuixoGameView:
         self.buttons: List[List[tk.Button]] = []
         self.opening_frame = None
         self.game_frame = None
+        self.instructions_frame = None
 
         # Build game UI first to determine window size
         self._build_game_ui()
         self._setup_window_size()
         self._build_opening_screen()
+        self._build_instructions_screen()
         
-        # Both frames now overlay; opening is shown initially
+        # All frames now overlay; opening is shown initially
         self.show_opening_screen()
 
     # ── Setup window size based on game frame ────────────────────────────────
@@ -110,7 +112,7 @@ class QuixoGameView:
             padx=20,
             pady=10,
             cursor="hand2",
-            command=self._show_instructions,
+            command=self.show_instructions_screen,
         ).pack(pady=(0, 28))
 
         # Agent selection
@@ -221,7 +223,7 @@ class QuixoGameView:
             self.buttons.append(row_buttons)
 
     def _build_controls(self, parent=None):
-        """Reset button below the board."""
+        """Reset button and menu button below the board."""
         parent = parent or self.root
         ctrl = tk.Frame(parent, bg=BG_WINDOW)
         ctrl.pack(pady=12)
@@ -239,7 +241,21 @@ class QuixoGameView:
             cursor="hand2",
             command=self._on_reset,
         )
-        self.reset_button.pack()
+        self.reset_button.pack(side=tk.LEFT, padx=6)
+
+        tk.Button(
+            ctrl,
+            text="☰  Menu",
+            font=("Helvetica", 11, "bold"),
+            bg="#a6adc8",
+            fg="#1e1e2e",
+            activebackground="#989bb8",
+            relief="flat",
+            padx=14,
+            pady=6,
+            cursor="hand2",
+            command=self.show_menu_from_game,
+        ).pack(side=tk.LEFT, padx=6)
 
     # ── Callback wiring ────────────────────────────────────────────────────────
 
@@ -270,22 +286,42 @@ class QuixoGameView:
         if self._reset_callback:
             self._reset_callback()
 
-    def _show_instructions(self):
-        """Show game instructions in a popup."""
+    def _build_instructions_screen(self):
+        """Build the instructions screen as an overlay."""
+        self.instructions_frame = tk.Frame(self.root, bg=BG_WINDOW)
+        self.instructions_frame.place(x=0, y=0, relwidth=1.0, relheight=1.0)
+
+        # Centered card container
+        card = tk.Frame(self.instructions_frame, bg=BG_BOARD, padx=20, pady=20)
+        card.pack(expand=True, pady=10, padx=20, fill=tk.BOTH)
+
+        # Title
+        tk.Label(
+            card,
+            text="How to Play QUIXO",
+            font=("Helvetica", 18, "bold"),
+            bg=BG_BOARD,
+            fg="#cdd6f4",
+        ).pack(pady=(0, 16))
+
+        # Instructions text in a scrollable frame
+        text_frame = tk.Frame(card, bg=BG_BOARD)
+        text_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 12))
+
         instructions = """QUIXO GAME RULES:
 
 • 5x5 board game for two players (X and O)
-• Players take turns moving pieces on the board
-• You can only select pieces from the perimeter (edges) that are either empty or marked with your symbol
-• After selecting a piece, push it back into the board from a perpendicular edge
+• Players take turns moving pieces
+• Only select pieces from the perimeter (edges) that are empty or marked with your symbol
+• After selecting, push the piece back into the board from a perpendicular edge
 • The row/column slides in the direction you choose
 • Win by getting 5 of your pieces in a row (horizontal, vertical, or diagonal)
-• NO TIES - the game continues until someone gets 5 in a row
+• NO TIES - the game continues until someone wins
 
 HOW TO PLAY:
 1. Click on a perimeter cell (edge of the board)
 2. If it's a corner, choose which direction to push
-3. If it's an edge (not corner), it will automatically push in the only available direction
+3. If it's an edge (not corner), it automatically pushes in the only available direction
 4. The AI (X) always goes first
 5. You play as O
 
@@ -294,30 +330,19 @@ AI AGENTS:
 • Heuristic: Uses strategic evaluation of board positions  
 • Greedy: Chooses moves based on learned board values
 • Random: Makes completely random moves (easiest opponent)"""
-        
-        # Create a scrollable text popup
-        popup = tk.Toplevel(self.root)
-        popup.title("How to Play Quixo")
-        popup.resizable(False, False)
-        popup.configure(bg=BG_WINDOW)
-        popup.grab_set()
-
-        # Instructions text in a scrollable frame
-        text_frame = tk.Frame(popup, bg=BG_WINDOW)
-        text_frame.pack(padx=20, pady=20)
 
         text_widget = tk.Text(
             text_frame,
             wrap=tk.WORD,
-            font=("Helvetica", 10),
+            font=("Helvetica", 9),
             bg=BG_WINDOW,
             fg="#cdd6f4",
-            height=20,
-            width=60,
+            height=16,
             relief="flat",
+            bd=0,
         )
         text_widget.insert(tk.END, instructions)
-        text_widget.config(state=tk.DISABLED)  # Make it read-only
+        text_widget.config(state=tk.DISABLED)
         
         scrollbar = tk.Scrollbar(text_frame, command=text_widget.yview)
         text_widget.config(yscrollcommand=scrollbar.set)
@@ -325,10 +350,10 @@ AI AGENTS:
         text_widget.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Close button
+        # Back button
         tk.Button(
-            popup,
-            text="Close",
+            card,
+            text="← Back to Menu",
             font=("Helvetica", 11, "bold"),
             bg="#f38ba8",
             fg="#1e1e2e",
@@ -337,20 +362,33 @@ AI AGENTS:
             padx=20,
             pady=8,
             cursor="hand2",
-            command=popup.destroy,
-        ).pack(pady=(0, 20))
+            command=self.show_opening_screen,
+        ).pack(pady=(0, 0))
 
     # ── Screen management ─────────────────────────────────────────────────────
 
     def show_opening_screen(self):
-        """Show the opening screen and hide the game."""
+        """Show the opening screen and hide others."""
         self.opening_frame.tkraise()
-        self.game_frame.pack_forget()  # Hide game frame
+        self.game_frame.pack_forget()
+        self.instructions_frame.pack_forget()
+
+    def show_instructions_screen(self):
+        """Show the instructions screen and hide others."""
+        self.instructions_frame.tkraise()
+        self.game_frame.pack_forget()
+        self.opening_frame.pack_forget()
 
     def hide_opening_screen(self):
         """Hide the opening screen and show the game."""
-        self.game_frame.pack()  # Show game frame
+        self.game_frame.pack()
         self.game_frame.tkraise()
+        self.opening_frame.pack_forget()
+        self.instructions_frame.pack_forget()
+
+    def show_menu_from_game(self):
+        """Return to the opening menu from the game."""
+        self.show_opening_screen()
 
     # ── Public view-update API ─────────────────────────────────────────────────
 
