@@ -162,15 +162,15 @@ class MyGameController:
         popup = tk.Toplevel(self._view.root)
         popup.title("Push direction")
         popup.resizable(False, False)
-        popup.configure(bg="#1e1e2e")
+        popup.configure(bg="#0f0f23")
         popup.grab_set()   # make it modal
 
         tk.Label(
             popup,
             text="Choose a direction to push:",
             font=("Helvetica", 11),
-            bg="#1e1e2e",
-            fg="#cdd6f4",
+            bg="#0f0f23",
+            fg="#e0e0e0",
         ).pack(pady=(14, 6), padx=20)
 
         # D-pad grid: up=row0/col1, left=row1/col0, right=row1/col2, down=row2/col1
@@ -181,7 +181,7 @@ class MyGameController:
             "down":  (2, 1, "↓"),
         }
 
-        pad_frame = tk.Frame(popup, bg="#1e1e2e")
+        pad_frame = tk.Frame(popup, bg="#0f0f23")
         pad_frame.pack(padx=24, pady=(4, 16))
 
         def pick(direction):
@@ -196,9 +196,9 @@ class MyGameController:
                 font=("Helvetica", 16, "bold"),
                 width=3,
                 height=1,
-                bg="#89dceb",
-                fg="#1e1e2e",
-                activebackground="#74c7ec",
+                bg="#00d4ff",
+                fg="#ffffff",
+                activebackground="#0088aa",
                 relief="flat",
                 cursor="hand2",
                 command=lambda d=d: pick(d),

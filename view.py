@@ -9,16 +9,16 @@ from typing import Callable, List, Optional
 from game import Game
 
 # ── Colour palette ─────────────────────────────────────────────────────────────
-BG_WINDOW   = "#1e1e2e"   # outer window background
-BG_BOARD    = "#313244"   # board frame background
-BG_PERIM    = "#45475a"   # default colour for clickable perimeter cells
-BG_INNER    = "#585b70"   # default colour for inner (non-clickable) cells
-BG_X        = "#89b4fa"   # light-blue for X pieces
-BG_O        = "#a6e3a1"   # light-green for O pieces
-BG_POSSIBLE = "#f5c2e7"   # light-pink for possible move positions
-FG_DARK     = "#1e1e2e"   # text on coloured cells
-FG_DOT      = "#cdd6f4"   # dot / empty cell text colour
-BTN_RESET   = "#f38ba8"   # reset button
+BG_WINDOW   = "#0f0f23"   # deep dark blue outer window background
+BG_BOARD    = "#1a1a2e"   # dark navy board frame background
+BG_PERIM    = "#16213e"   # dark blue for clickable perimeter cells
+BG_INNER    = "#0f3460"   # darker blue for inner (non-clickable) cells
+BG_X        = "#00d4ff"   # neon cyan for X pieces
+BG_O        = "#ff006e"   # neon pink for O pieces
+BG_POSSIBLE = "#ffbe0b"   # neon yellow for possible move positions
+FG_DARK     = "#ffffff"   # white text on coloured cells
+FG_DOT      = "#e0e0e0"   # light gray dot / empty cell text colour
+BTN_RESET   = "#ff006e"   # neon pink for reset button
 
 
 class QuixoGameView:
@@ -91,7 +91,7 @@ class QuixoGameView:
             text="Q U I X O",
             font=("Helvetica", 32, "bold"),
             bg=BG_BOARD,
-            fg="#cdd6f4",
+            fg=FG_DOT,
         ).pack(pady=(8, 16))
 
         tk.Label(
@@ -99,7 +99,7 @@ class QuixoGameView:
             text="AI Agent vs Human",
             font=("Helvetica", 16),
             bg=BG_BOARD,
-            fg="#a6adc8",
+            fg=FG_DOT,
         ).pack(pady=(0, 24))
 
         # Instructions button
@@ -107,9 +107,9 @@ class QuixoGameView:
             card,
             text="📖 How to Play",
             font=("Helvetica", 12, "bold"),
-            bg="#89b4fa",
-            fg="#1e1e2e",
-            activebackground="#74c7ec",
+            bg=BG_X,
+            fg=FG_DARK,
+            activebackground="#0088aa",
             relief="flat",
             padx=20,
             pady=10,
@@ -123,7 +123,7 @@ class QuixoGameView:
             text="Choose AI Agent:",
             font=("Helvetica", 14, "bold"),
             bg=BG_BOARD,
-            fg="#cdd6f4",
+            fg=FG_DOT,
         ).pack(pady=(0, 12))
 
         agent_frame = tk.Frame(card, bg=BG_BOARD)
@@ -144,10 +144,10 @@ class QuixoGameView:
                 value=value,
                 font=("Helvetica", 11),
                 bg=BG_BOARD,
-                fg="#cdd6f4",
+                fg=FG_DOT,
                 selectcolor=BG_BOARD,
                 activebackground=BG_BOARD,
-                activeforeground="#89b4fa",
+                activeforeground=BG_X,
                 command=self._on_agent_change,
             ).pack(anchor="w", padx=20, pady=2)
 
@@ -156,9 +156,9 @@ class QuixoGameView:
             card,
             text="🎮 Start Game",
             font=("Helvetica", 14, "bold"),
-            bg="#a6e3a1",
-            fg="#1e1e2e",
-            activebackground="#94e2cd",
+            bg=BG_O,
+            fg=FG_DARK,
+            activebackground="#cc0055",
             relief="flat",
             padx=30,
             pady=12,
@@ -193,7 +193,7 @@ class QuixoGameView:
             text="Your turn  (O)",
             font=("Helvetica", 11),
             bg=BG_WINDOW,
-            fg="#a6adc8",
+            fg=FG_DOT,
         )
         self.status_label.pack(pady=(0, 8))
 
@@ -215,7 +215,7 @@ class QuixoGameView:
                     font=("Helvetica", 18, "bold"),
                     bg=BG_PERIM if is_perimeter else BG_INNER,
                     fg=FG_DOT,
-                    activebackground="#585b70",
+                    activebackground="#00d4ff",
                     relief="flat",
                     cursor="hand2" if is_perimeter else "arrow",
                     command=lambda r=row, c=col: self.handle_button_click(r, c),
@@ -235,8 +235,8 @@ class QuixoGameView:
             text="↺  New Game",
             font=("Helvetica", 11, "bold"),
             bg=BTN_RESET,
-            fg="#1e1e2e",
-            activebackground="#eb6f92",
+            fg=FG_DARK,
+            activebackground="#cc0055",
             relief="flat",
             padx=14,
             pady=6,
@@ -249,9 +249,9 @@ class QuixoGameView:
             ctrl,
             text="☰  Menu",
             font=("Helvetica", 11, "bold"),
-            bg="#a6adc8",
-            fg="#1e1e2e",
-            activebackground="#989bb8",
+            bg="#00d4ff",
+            fg=FG_DARK,
+            activebackground="#0088aa",
             relief="flat",
             padx=14,
             pady=6,
@@ -303,7 +303,7 @@ class QuixoGameView:
             text="How to Play QUIXO",
             font=("Helvetica", 18, "bold"),
             bg=BG_BOARD,
-            fg="#cdd6f4",
+            fg=FG_DOT,
         ).pack(pady=(0, 16))
 
         # Instructions text in a scrollable frame
@@ -338,7 +338,7 @@ AI AGENTS:
             wrap=tk.WORD,
             font=("Helvetica", 9),
             bg=BG_WINDOW,
-            fg="#cdd6f4",
+            fg=FG_DOT,
             height=16,
             relief="flat",
             bd=0,
@@ -357,9 +357,9 @@ AI AGENTS:
             card,
             text="← Back to Menu",
             font=("Helvetica", 11, "bold"),
-            bg="#f38ba8",
-            fg="#1e1e2e",
-            activebackground="#eb6f92",
+            bg=BTN_RESET,
+            fg=FG_DARK,
+            activebackground="#cc0055",
             relief="flat",
             padx=20,
             pady=8,
@@ -440,16 +440,19 @@ AI AGENTS:
                     btn.config(state=tk.NORMAL)
 
     def highlight_button(self, row: int, col: int):
-        """Visually mark a cell as selected (gold outline effect)."""
-        self.buttons[row][col].config(bg="#f9e2af", fg="#1e1e2e")
+        """Visually mark a cell as selected (neon yellow effect)."""
+        self.buttons[row][col].config(bg="#ffbe0b", fg=FG_DARK)
 
     def unhighlight_all(self):
         """Remove any selection highlight, restoring each cell's natural colour."""
         for r, row_btns in enumerate(self.buttons):
             for c, btn in enumerate(row_btns):
-                # Only touch cells that are still in their default state
                 current_text = btn.cget("text")
-                if current_text not in ("X", "O"):
+                if current_text == "X":
+                    btn.config(bg=BG_X, fg=FG_DARK)
+                elif current_text == "O":
+                    btn.config(bg=BG_O, fg=FG_DARK)
+                else:
                     is_perimeter = r in (0, 4) or c in (0, 4)
                     btn.config(
                         bg=BG_PERIM if is_perimeter else BG_INNER,
