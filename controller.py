@@ -158,60 +158,6 @@ class MyGameController:
             positions.append(pos)
         self._view.highlight_possible(positions)
 
-    def _show_direction_picker(self, row: int, col: int, dirs: list):
-        """Modal popup with a directional-pad layout for choosing a push direction."""
-        popup = tk.Toplevel(self._view.root)
-        popup.title("Push direction")
-        popup.resizable(False, False)
-        popup.configure(bg="#0f0f23")
-        popup.grab_set()   # make it modal
-
-        tk.Label(
-            popup,
-            text="Choose a direction to push:",
-            font=("Helvetica", 11),
-            bg="#0f0f23",
-            fg="#e0e0e0",
-        ).pack(pady=(14, 6), padx=20)
-
-        # D-pad grid: up=row0/col1, left=row1/col0, right=row1/col2, down=row2/col1
-        DPAD = {
-            "up":    (0, 1, "↑"),
-            "left":  (1, 0, "←"),
-            "right": (1, 2, "→"),
-            "down":  (2, 1, "↓"),
-        }
-
-        pad_frame = tk.Frame(popup, bg="#0f0f23")
-        pad_frame.pack(padx=24, pady=(4, 16))
-
-        def pick(direction):
-            popup.destroy()
-            self._execute_human_move(row, col, direction)
-
-        for d in dirs:
-            grid_row, grid_col, symbol = DPAD[d]
-            tk.Button(
-                pad_frame,
-                text=symbol,
-                font=("Helvetica", 16, "bold"),
-                width=3,
-                height=1,
-                bg="#00d4ff",
-                fg="#ffffff",
-                activebackground="#0088aa",
-                relief="flat",
-                cursor="hand2",
-                command=lambda d=d: pick(d),
-            ).grid(row=grid_row, column=grid_col, padx=4, pady=4)
-
-        def on_close():
-            """User closed the popup without choosing – deselect the cell."""
-            self._selected = None
-            self._view.unhighlight_all()
-            popup.destroy()
-
-        popup.protocol("WM_DELETE_WINDOW", on_close)
 
     def _execute_human_move(self, row: int, col: int, direction: str):
         """Apply the validated human move, then schedule the AI's response."""

@@ -6,8 +6,8 @@ import json
 import matplotlib.pyplot as plt
 
 operation_mode = "TRAIN"  # Change to "TRAIN" to train the model, or "INFERENCE" to load and predict
-EPOCHS = 300
-EVAL_EVERY = 10
+EPOCHS = 25
+EVAL_EVERY = 5  # Changed to save every 5 epochs
 LEARNING_RATE = 1e-3
 BATCH_SIZE = 4096
 SEED = 42
@@ -114,6 +114,8 @@ def train(model, train_loader, test_loader, device, epochs=EPOCHS, learning_rate
     train_loss_history = []
     test_eval_epochs = []
     test_loss_history = []
+    best_test_loss = float('inf')
+    best_epoch = -1
 
     print("\nStarting Training Loop...")
     for epoch in range(epochs):
@@ -140,16 +142,27 @@ def train(model, train_loader, test_loader, device, epochs=EPOCHS, learning_rate
         avg_loss = total_loss / len(train_loader)
         train_loss_history.append(avg_loss)
 
-        if epoch % eval_every == 0 or epoch == epochs - 1:
+        if epoch % eval_every == eval_every - 1 or epoch == epochs - 1:  # Evaluate every 5 epochs (at 4,9,14,19,24)
             avg_test_loss = evaluate(model, test_loader, device)
             test_loss_history.append(avg_test_loss)
             test_eval_epochs.append(epoch)
             scheduler.step(avg_test_loss)
             print(f"Epoch {epoch} | Average Training Loss: {avg_loss:.5f} | Average Test Loss: {avg_test_loss:.5f}")
 
-       
+            # Save checkpoint
+            checkpoint_path = f"quixo_model_epoch_{epoch}.pth"
+            torch.save(model.state_dict(), checkpoint_path)
+            print(f"Checkpoint saved to {checkpoint_path}")
 
-    return train_loss_history, test_loss_history, test_eval_epochs
+            # Track best model
+            if avg_test_loss < best_test_loss:
+                best_test_loss = avg_test_loss
+                best_epoch = epoch
+                torch.save(model.state_dict(), "quixo_model_best.pth")
+                print(f"New best model saved with test loss {best_test_loss:.5f}")
+
+    print(f"\nBest model was at epoch {best_epoch} with test loss {best_test_loss:.5f}")
+    return train_loss_history, test_loss_history, test_eval_epochs, best_epoch
 
 # Evaluation
 def evaluate(model, loader, device):
@@ -256,7 +269,7 @@ if __name__ == "__main__":
         net = QuixoNet().to(device)
 
         # 4. Execute Training
-        train_loss_history, test_loss_history, test_eval_epochs = train(
+        train_loss_history, test_loss_history, test_eval_epochs, best_epoch = train(
             net,
             train_loader,
             test_loader,
@@ -266,9 +279,10 @@ if __name__ == "__main__":
             eval_every=EVAL_EVERY
         )
 
-        # 5. Save the result
-        torch.save(net.state_dict(), "quixo_model.pth")
-        print("\nModel saved to quixo_model.pth")
+        # 5. Save the best model as the final model
+        import shutil
+        shutil.copy("quixo_model_best.pth", "quixo_model.pth")
+        print("\nBest model copied to quixo_model.pth")
 
         # 6. Plot loss over epochs
         plt.figure()

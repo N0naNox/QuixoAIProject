@@ -3,6 +3,7 @@ Quixo AI Project – Main Script
 ===============================
 This script:
   1. Generates 3 dictionaries (100K games each): Random, Greedy, Heuristic
+     - All dictionaries are generated with each agent playing against a RANDOM opponent
   2. Runs performance tournaments (1000 games) for each agent type
   3. Compares unknown-board rates (100 games) for greedy with each dictionary
   4. Evaluates dictionary quality (score distribution)
@@ -24,7 +25,7 @@ HEURISTIC_EPSILON = 0.1
 
 
 def load_dict(filename):
-    """This function """
+    """This function checks if a dictionary file exists and loads it, or returns None if not found."""
     if os.path.exists(filename):
         with open(filename, 'r') as f:
             return json.load(f)
@@ -142,19 +143,19 @@ if __name__ == "__main__":
     else:
         print(f"\nLoaded existing random dictionary ({len(random_dict)} boards)")
 
-    # Greedy dictionary (uses the random dictionary as base)
+    # Greedy dictionary (generated with GREEDY agent vs RANDOM opponent)
     greedy_dict = load_dict('states_greedy.json')
     if greedy_dict is None:
         greedy_dict = generate_dictionary('states_greedy.json', 'GREEDY', DICT_SIZE,
-                                          epsilon=GREEDY_EPSILON, opponent_play_mode='GREEDY')
+                                          epsilon=GREEDY_EPSILON, opponent_play_mode='RANDOM')
     else:
         print(f"Loaded existing greedy dictionary ({len(greedy_dict)} boards)")
 
-    # Heuristic dictionary
+    # Heuristic dictionary (generated with HEURISTIC agent vs RANDOM opponent)
     heuristic_dict = load_dict('states_heuristic.json')
     if heuristic_dict is None:
         heuristic_dict = generate_dictionary('states_heuristic.json', 'HEURISTIC',
-                                             DICT_SIZE, epsilon=HEURISTIC_EPSILON, opponent_play_mode='HEURISTIC')
+                                             DICT_SIZE, epsilon=HEURISTIC_EPSILON, opponent_play_mode='RANDOM')
     else:
         print(f"Loaded existing heuristic dictionary ({len(heuristic_dict)} boards)")
 
@@ -211,5 +212,8 @@ if __name__ == "__main__":
     Tournament.print_dict_quality(random_dict, "Random")
     Tournament.print_dict_quality(greedy_dict, "Greedy")
     Tournament.print_dict_quality(heuristic_dict, "Heuristic")
+
+
+
 
 

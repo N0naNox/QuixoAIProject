@@ -281,7 +281,7 @@ class QuixoGameView:
 
     def _on_agent_change(self):
         """Handle agent selection change."""
-        pass  # Could add visual feedback if needed
+        pass  
 
     def _on_reset(self):
         self.reset_view()
@@ -499,7 +499,6 @@ AI AGENTS:
         if self._click_callback:
             self._click_callback(row, col)
         else:
-            # Stand-alone demo behaviour
             if row in (0, 4) or col in (0, 4):
                 self.show_message("Cell clicked", f"Perimeter cell ({row}, {col})")
             else:
