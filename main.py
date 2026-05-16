@@ -79,6 +79,7 @@ def run_unknown_rate_analysis(states_dict, label, epsilon=0.1):
 
 
 def test_nn_vs_greedy():
+    '''Test the neural network agent against the greedy agent in both configurations.'''
     import json
     import os
     from tournament import Tournament

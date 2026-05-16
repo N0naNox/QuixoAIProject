@@ -40,6 +40,7 @@ class MyGameController:
     # ── Wiring ─────────────────────────────────────────────────────────────────
 
     def _connect_signals(self):
+        '''Connect view events to controller handlers.'''
         self._view.set_click_callback(self._handle_human_move)
         self._view.set_reset_callback(self.start_new_game)
         self._view.set_start_callback(self._handle_start_game)

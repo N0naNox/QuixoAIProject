@@ -281,9 +281,10 @@ class QuixoGameView:
 
     def _on_agent_change(self):
         """Handle agent selection change."""
-        pass  # Could add visual feedback if needed
+        pass  
 
     def _on_reset(self):
+        '''Handle reset button click.'''
         self.reset_view()
         if self._reset_callback:
             self._reset_callback()

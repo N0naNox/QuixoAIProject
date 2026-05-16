@@ -9,10 +9,16 @@ from torch.utils.data import TensorDataset, DataLoader, random_split
 
 
 def other_player(player):
+    '''
+    Return the other player symbol.
+    '''
     return 'O' if player == 'X' else 'X'
 
 
 def victory_for(player):
+    '''
+     Return the victory string for the given player.
+    '''
     return 'VICTORY_X' if player == 'X' else 'VICTORY_O'
 
 
@@ -48,14 +54,24 @@ class Game:
         self.total_moves = 0
 
     def get_active_play_mode(self):
+        '''
+        Determine the active play mode based on the current player.
+        '''
         return self.play_mode if self.current_player == 'X' else self.opponent_play_mode
 
     def get_model_device(self):
+        '''
+        Get the device of the model parameters, or CPU if no model.
+        '''
         if self.model is None:
             return torch.device("cpu")
         return next(self.model.parameters()).device
 
     def lookup_state_entry(self, board, player_to_move):
+        '''
+        Look up the state entry for the given board and player.
+        '''
+        
         state_key = hash_board(board, player_to_move)
         entry = self.states_dict.get(state_key)
         if entry is not None:
@@ -243,6 +259,7 @@ class Game:
 
 
     def perform_nn_agent_move(self):
+        '''Use the neural network model to evaluate all possible moves and pick the best one.'''
         if self.model is None:
             self.perform_greedy_agent_move()
             return
@@ -351,10 +368,12 @@ class Game:
         return scores
 
     def print_board(self):
+        '''Print the current board state in a readable format.'''
         for row in self.board:
             print("|" + "|".join(row) + "|")
 
     def print_result(self):
+        '''Print the result of the game based on the outcome.'''
         if self.outcome == 'VICTORY_X':
             print("X Wins!")
         elif self.outcome == 'VICTORY_O':

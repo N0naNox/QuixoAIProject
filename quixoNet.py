@@ -31,6 +31,7 @@ def split_state_string(state_str):
 
 
 def encode_state(state_str):
+    '''Convert a state string into a one-hot encoded vector for model input.'''
     current_player, board_str = split_state_string(state_str)
 
     board_vector = []
@@ -76,6 +77,7 @@ def load_and_encode_data(file_path):
 
 
 def weighted_mse_loss(predictions, targets, weights):
+    '''Calculate a weighted mean squared error loss.'''
     squared_error = (predictions - targets) ** 2
     weighted_error = squared_error * weights
     return weighted_error.sum() / weights.sum().clamp_min(1e-8)
@@ -92,6 +94,7 @@ class QuixoNet(nn.Module):
         self.output = nn.Linear(64, 1)
 
     def forward(self, x):
+        '''Define the forward pass through the network.'''
         # Layer 1
         x = self.layer1(x)
         x = torch.relu(x)
@@ -108,6 +111,7 @@ class QuixoNet(nn.Module):
 
 # Training
 def train(model, train_loader, test_loader, device, epochs=EPOCHS, learning_rate=0.001, eval_every=EVAL_EVERY):
+    '''Train the model using the provided data loaders and parameters.'''
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=0.01)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', patience=10)
 
@@ -153,6 +157,7 @@ def train(model, train_loader, test_loader, device, epochs=EPOCHS, learning_rate
 
 # Evaluation
 def evaluate(model, loader, device):
+    '''Evaluate the model on the test set and return the average loss.'''
     model.eval()  # Set model to evaluation mode
     total_loss = 0
 
